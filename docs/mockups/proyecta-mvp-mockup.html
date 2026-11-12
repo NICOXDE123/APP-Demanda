@@ -191,8 +191,10 @@ table.tbl tbody tr.selected { background: var(--bs-primary-soft); }
 @media (max-width: 1180px) { .kpi-grid-6 { grid-template-columns: repeat(2, 1fr); } .grid-2, .grid-equal { grid-template-columns: 1fr; } .split-view { flex-direction: column; } .split-side { width: 100%; position: static; max-height: none; } }
 @media (max-width: 680px) { .kpi-grid-6, .row-3, .row-2 { grid-template-columns: 1fr; } }
 </style>
+<link rel="stylesheet" href="proyecta-mvp-ux.css">
 </head>
 <body>
+<a class="skip-link" href="#workspace">Saltar al contenido principal</a>
 
 <!-- MODAL DE ACCESO POR ROL -->
 <div id="login-modal">
@@ -215,7 +217,9 @@ table.tbl tbody tr.selected { background: var(--bs-primary-soft); }
     </div>
     <div class="login-right">
       <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--bs-primary)">Control de Acceso por Perfil</div>
-      <h3 style="font-size:18px">Selecciona un rol para ingresar</h3>
+      <h2 style="font-size:18px">Explora la demo con un rol</h2>
+      <p class="demo-help">Los cambios duran hasta recargar esta página. Elige un perfil para conocer sus acciones.</p>
+      <button class="btn" onclick="document.getElementById('login-modal').classList.remove('active')">Volver a la demo</button>
       <button class="role-btn" onclick="switchRole('Operaciones')">
         <div><b>Operaciones (USR-OP-01 · M. Soto)</b><div style="font-size:11.5px;color:var(--bs-secondary)">Visión global, ajuste de confiabilidad con motivo y parámetros de vigencia</div></div>
         <span class="mono" style="color:var(--bs-primary)">Entrar →</span>
@@ -256,7 +260,7 @@ table.tbl tbody tr.selected { background: var(--bs-primary-soft); }
   </div>
 
   <div class="header-nav">
-    <nav class="nav-list" id="nav-tabs"></nav>
+    <nav class="nav-list" id="nav-tabs" aria-label="Navegación principal"></nav>
     <div style="display:flex;align-items:center;gap:10px">
       <button class="btn btn-primary" id="btn-new-record" style="padding:5px 12px" onclick="openRecordModal()">+ Nuevo Registro</button>
     </div>
@@ -267,7 +271,9 @@ table.tbl tbody tr.selected { background: var(--bs-primary-soft); }
 <section class="subbar">
   <div class="sub-pills" id="sub-pills-container"></div>
   <div class="filter-group">
-    <input id="global-search-input" class="f-ctrl" placeholder="Buscar código, cliente, proyecto, tecnología…" oninput="onSearchInput(this.value)" style="width:240px">
+    <label class="filter-field search-field" for="global-search-input"><span>Buscar en la cartera</span>
+    <input id="global-search-input" class="f-ctrl" type="search" placeholder="Código, cliente, proyecto o tecnología" oninput="onSearchInput(this.value)"></label>
+    <label class="filter-field" for="filter-sector"><span>Sector</span>
     <select id="filter-sector" class="f-ctrl" onchange="S.filters.sector=this.value;refreshWorkspace()">
       <option value="ALL">Sector: Todos</option>
       <option value="Banca">Banca</option>
@@ -275,27 +281,29 @@ table.tbl tbody tr.selected { background: var(--bs-primary-soft); }
       <option value="Telecom">Telecom</option>
       <option value="RRNN">RRNN</option>
       <option value="Industria">Industria</option>
-    </select>
+    </select></label>
+    <label class="filter-field" for="filter-manager"><span>Líder responsable</span>
     <select id="filter-manager" class="f-ctrl" onchange="S.filters.manager=this.value;refreshWorkspace()">
       <option value="ALL">Líder: Todos</option>
       <option value="J. Rivas">J. Rivas</option>
       <option value="M. Soto">M. Soto</option>
       <option value="L. Paredes">L. Paredes</option>
       <option value="R. Pino">R. Pino</option>
-    </select>
+    </select></label>
     <button class="btn" id="btn-clear-filters" style="padding:5px 10px;display:none" onclick="resetFilters()">✕ Limpiar filtros</button>
   </div>
 </section>
 
 <!-- CONTENEDOR CENTRAL -->
-<main class="workspace" id="workspace"></main>
+<main class="workspace" id="workspace" tabindex="-1" aria-label="Área de trabajo"></main>
+<p class="sr-only" id="workspace-status" role="status" aria-atomic="true"></p>
 
 <!-- MODAL -->
 <div id="modal-overlay" onclick="if(event.target===this)closeModal()">
   <div class="modal-box" id="modal-box"></div>
 </div>
 
-<div id="toast"></div>
+<div id="toast" role="status" aria-atomic="true"></div>
 
 <script>
 /* ============================================================================
@@ -725,12 +733,17 @@ function renderChrome() {
 }
 
 function refreshWorkspace() {
+  const previous = document.activeElement;
+  const previousAction = previous && previous.getAttribute('onclick');
   renderChrome();
   const ws = document.getElementById('workspace');
   if (S.module === 'dash') ws.innerHTML = renderDashboardModule();
   else if (S.module === 'pipe') ws.innerHTML = renderPipelineModule();
   else if (S.module === 'audit') ws.innerHTML = renderAuditModule();
   else if (S.module === 'params') ws.innerHTML = renderParamsModule();
+  if (typeof enhanceWorkspace === 'function') {
+    enhanceWorkspace(previous, previousAction);
+  }
 }
 
 /* ============================================================================
@@ -795,10 +808,10 @@ function renderExecDashboard() {
     },
     {
       tag: `Ponderado (${refM.lbl})`,
-      lbl: 'MAB Mensual (Base × Prob × Conf)',
+      lbl: 'MAB mensual · Ingreso ponderado',
       val: fmtCLP(mabMes, true),
       sub: `Castigo Prob: −${fmtCLP(discountProb, true)} · Castigo Conf: −${fmtCLP(discountConf, true)}`,
-      action: () => { S.filters.stateFilter = 'CONF'; S.module = 'pipe'; refreshWorkspace(); }
+      action: () => { S.filters.stateFilter = 'ACTIVE'; S.module = 'pipe'; refreshWorkspace(); }
     },
     {
       tag: `Proyección (${S.forecastHorizon}M)`,
@@ -902,6 +915,14 @@ function renderExecDashboard() {
             `;
           }).join('')}
         </svg>
+        <details class="chart-data">
+          <summary>Ver cifras del gráfico en una tabla</summary>
+          <div class="table-wrap"><table class="tbl">
+            <caption>Forecast mensual en pesos chilenos</caption>
+            <thead><tr><th scope="col">Mes</th><th scope="col" class="num">Demandas</th><th scope="col" class="num">Oportunidades</th><th scope="col" class="num">Total</th></tr></thead>
+            <tbody>${monthSeries.map(ms => `<tr><th scope="row">${ms.mObj.lbl}</th><td class="num">${fmtCLP(ms.demMAB)}</td><td class="num">${fmtCLP(ms.oppMAB)}</td><td class="num">${fmtCLP(ms.total)}</td></tr>`).join('')}</tbody>
+          </table></div>
+        </details>
       </div>
 
       <div class="card">
@@ -1501,7 +1522,10 @@ function validateDraftForm() {
 
   const errEl = document.getElementById('draft-err-box');
   const saveBtn = document.getElementById('btn-save-rec');
-  if (errEl) errEl.textContent = errs.join(' · ');
+  if (errEl) {
+    errEl.textContent = errs.join(' · ');
+    if (typeof presentDraftErrors === 'function') presentDraftErrors(errs);
+  }
   if (saveBtn) saveBtn.disabled = errs.length > 0;
 
   const refM = MONTHS_12[S.refMonthIndex];
@@ -1847,7 +1871,7 @@ function toast(msg) {
   window._t = setTimeout(() => el.style.display = 'none', 3200);
 }
 
-refreshWorkspace();
 </script>
+<script src="proyecta-mvp-ux.js"></script>
 </body>
 </html>
