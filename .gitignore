@@ -1,9 +1,45 @@
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+
+# Herramientas
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 .coverage
+coverage.xml
 htmlcov/
+
+# Temporales de pip
+.dsh-tmp/
+tmp_pip/
+
+# Secretos y configuración local (Principio IX)
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+*credentials*.json
+service-account*.json
+
+# Datos reales del cliente: no se versionan (Principio I y IX, RNF-15)
+*.xlsx
+*.xls
+*.csv
+
+# Datos personales del equipo: la propuesta V3 incluye CV con teléfonos y correos (Principio IX)
+docs/fuentes/Heavy-Duty_APPGestionDeLaDemanda_V3.pdf
+
+# Editor y sistema
+.vscode/
+.idea/
+.DS_Store
 fixture.json
 datos_sinteticos.json
 .agents

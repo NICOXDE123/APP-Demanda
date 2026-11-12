@@ -1,0 +1,43 @@
+{# Filtros combinables (FR-048); los totales son la suma de los registros visibles. #}
+<form class="card card-body mb-3 py-2" method="get" action="{{ accion }}" aria-label="Filtros">
+  <div class="row g-2 align-items-end small">
+    <div class="col-6 col-md-2"><label class="form-label mb-0" for="f-desde">Desde</label>
+      <input id="f-desde" class="form-control form-control-sm" type="month" name="desde" value="{{ filtros.periodo }}"></div>
+    <div class="col-6 col-md-1"><label class="form-label mb-0" for="f-meses">Vista</label>
+      <select id="f-meses" class="form-select form-select-sm" name="meses">
+        {% for n in (3, 6, 12) %}<option value="{{ n }}" {% if filtros.meses == n %}selected{% endif %}>{{ n }} meses</option>{% endfor %}</select></div>
+    <div class="col-6 col-md-2"><label class="form-label mb-0" for="f-sector">Sector</label>
+      <select id="f-sector" class="form-select form-select-sm" name="sector"><option value="">Todos</option>
+        {% for c in sectores %}<option value="{{ c.id }}" {% if filtros.sector_id == c.id %}selected{% endif %}>{{ c.etiqueta }}</option>{% endfor %}</select></div>
+    <div class="col-6 col-md-2"><label class="form-label mb-0" for="f-cliente">Cliente</label>
+      <select id="f-cliente" class="form-select form-select-sm" name="cliente"><option value="">Todos</option>
+        {% for c in clientes %}<option value="{{ c.id }}" {% if filtros.cliente_id == c.id %}selected{% endif %}>{{ c.etiqueta }}</option>{% endfor %}</select></div>
+    <div class="col-6 col-md-2"><label class="form-label mb-0" for="f-manager">Manager</label>
+      <select id="f-manager" class="form-select form-select-sm" name="manager"><option value="">Todos</option>
+        {% for c in managers %}<option value="{{ c.id }}" {% if filtros.manager_id == c.id %}selected{% endif %}>{{ c.etiqueta }}</option>{% endfor %}</select></div>
+    {% if rol != 'LIDER' %}
+    <div class="col-6 col-md-2"><label class="form-label mb-0" for="f-owner">Owner</label>
+      <select id="f-owner" class="form-select form-select-sm" name="owner"><option value="">Todos</option>
+        {% for u in owners %}<option value="{{ u.id }}" {% if filtros.owner_id == u.id %}selected{% endif %}>{{ u.nombre }}</option>{% endfor %}</select></div>
+    {% endif %}
+    <div class="col-6 col-md-1"><label class="form-label mb-0" for="f-tipo">Tipo</label>
+      <select id="f-tipo" class="form-select form-select-sm" name="tipo"><option value="">Todos</option>
+        {% for t in tipos %}<option value="{{ t.value }}" {% if filtros.tipo == t.value %}selected{% endif %}>{{ t|etiqueta }}</option>{% endfor %}</select></div>
+    <div class="col-6 col-md-2"><label class="form-label mb-0" for="f-estado">Estado</label>
+      <select id="f-estado" class="form-select form-select-sm" name="estado"><option value="">Todos</option>
+        {% for t in estados %}<option value="{{ t.value }}" {% if filtros.estado == t.value %}selected{% endif %}>{{ t|etiqueta }}</option>{% endfor %}</select></div>
+    <div class="col-6 col-md-2"><label class="form-label mb-0" for="f-flujo">Flujo</label>
+      <select id="f-flujo" class="form-select form-select-sm" name="flujo"><option value="">Todos</option>
+        {% for t in flujos %}<option value="{{ t.value }}" {% if filtros.flujo == t.value %}selected{% endif %}>{{ t|etiqueta }}</option>{% endfor %}</select></div>
+    <div class="col-6 col-md-2"><label class="form-label mb-0" for="f-modalidad">Modalidad</label>
+      <select id="f-modalidad" class="form-select form-select-sm" name="modalidad"><option value="">Todas</option>
+        {% for t in modalidades %}<option value="{{ t.value }}" {% if filtros.modalidad == t.value %}selected{% endif %}>{{ t|etiqueta }}</option>{% endfor %}</select></div>
+    <div class="col-12 col-md-3"><label class="form-label mb-0" for="f-q">Buscar</label>
+      <input id="f-q" class="form-control form-control-sm" name="q" value="{{ filtros.texto }}" placeholder="Código, servicio o cliente"></div>
+    <div class="col-6 col-md-2 form-check ms-2 mb-1">
+      <input class="form-check-input" type="checkbox" name="activos" value="1" id="f-activos" {% if filtros.solo_activos %}checked{% endif %}>
+      <label class="form-check-label" for="f-activos">Solo activos</label></div>
+    <div class="col-auto"><button class="btn btn-sm btn-primary">Aplicar</button>
+      <a class="btn btn-sm btn-link" href="{{ accion }}">Limpiar</a></div>
+  </div>
+</form>

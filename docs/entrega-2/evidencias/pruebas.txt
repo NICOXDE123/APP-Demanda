@@ -1,0 +1,120 @@
+# Salida de pytest · 12-11-2026 07:46 · Python 3.12.3
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.1.1, pluggy-1.7.0 -- .venv/bin/python
+rootdir: /home/mts/Escritorio/NTTDAta/Gitlab/app-demanda
+configfile: pyproject.toml
+testpaths: tests
+plugins: anyio-4.16.0, cov-7.1.0
+collecting ... collected 88 items
+
+tests/integration/test_app.py::test_sin_sesion_redirige_al_login_y_la_api_responde_401 PASSED [  1%]
+tests/integration/test_app.py::test_bloqueo_tras_cinco_intentos_y_cookie_segura PASSED [  2%]
+tests/integration/test_app.py::test_post_sin_csrf_se_rechaza PASSED      [  3%]
+tests/integration/test_app.py::test_alta_calcula_como_la_spec_y_audita_la_creacion PASSED [  4%]
+tests/integration/test_app.py::test_alta_invalida_no_guarda_nada PASSED  [  5%]
+tests/integration/test_app.py::test_ciclo_de_vida_con_auditoria_por_campo_e_impacto PASSED [  6%]
+tests/integration/test_app.py::test_confiabilidad_solo_operaciones_y_sin_reescribir_meses_anteriores PASSED [  7%]
+tests/integration/test_app.py::test_conflicto_de_version_informa_y_no_pisa PASSED [  9%]
+tests/integration/test_app.py::test_permisos_de_lider_y_ejecutivo PASSED [ 10%]
+tests/integration/test_app.py::test_auditoria_es_solo_lectura PASSED     [ 11%]
+tests/integration/test_app.py::test_horas_con_vigencia_no_reescriben_meses_anteriores PASSED [ 12%]
+tests/integration/test_app.py::test_dashboard_filtra_y_los_totales_son_la_suma_de_lo_visible PASSED [ 13%]
+tests/integration/test_forecast.py::test_serie_de_12_meses_cumple_forecast_y_suma_totales PASSED [ 14%]
+tests/integration/test_forecast.py::test_vistas_de_3_6_y_12_meses PASSED [ 15%]
+tests/integration/test_forecast.py::test_ac17_horas_con_vigencia_solo_desde_el_mes_efectivo PASSED [ 17%]
+tests/integration/test_forecast.py::test_confiabilidad_con_vigencia_no_reescribe_meses_anteriores PASSED [ 18%]
+tests/integration/test_forecast.py::test_previsualizacion_no_persiste_ni_cambia_estados PASSED [ 19%]
+tests/integration/test_forecast.py::test_filtros_por_owner_y_sector PASSED [ 20%]
+tests/integration/test_forecast.py::test_api_forecast_respeta_el_esquema_del_contrato PASSED [ 21%]
+tests/integration/test_ia_sim.py::test_sugerencia_cita_la_bitacora_y_queda_pendiente PASSED [ 22%]
+tests/integration/test_ia_sim.py::test_aceptar_sugerencia_audita_con_origen_ia_sin_escribir_el_registro PASSED [ 23%]
+tests/integration/test_ia_sim.py::test_descartar_sugerencia_no_genera_auditoria PASSED [ 25%]
+tests/integration/test_ia_sim.py::test_sin_bitacora_no_hay_sugerencias PASSED [ 26%]
+tests/integration/test_ia_sim.py::test_propuesta_sin_cita_es_rechazada PASSED [ 27%]
+tests/integration/test_ia_sim.py::test_sin_ia_disponible_el_mvp_sigue_operando PASSED [ 28%]
+tests/integration/test_ia_sim.py::test_el_contexto_de_ia_no_envia_datos_de_cliente_ni_tarifas PASSED [ 29%]
+tests/integration/test_ia_sim.py::test_simulacion_es_aislada_etiquetada_y_no_escribe PASSED [ 30%]
+tests/integration/test_ia_sim.py::test_simulacion_no_permite_cambiar_estados_ni_fechas PASSED [ 31%]
+tests/integration/test_seed.py::test_fixture_crea_cuatro_registros_y_reporta_una_inconsistencia_por_fila PASSED [ 32%]
+tests/integration/test_seed.py::test_fixture_recalcula_con_180_horas PASSED [ 34%]
+tests/integration/test_seed.py::test_la_carga_es_idempotente_por_codigo PASSED [ 35%]
+tests/integration/test_seed.py::test_el_fixture_no_contiene_datos_reales PASSED [ 36%]
+tests/integration/test_seed.py::test_serializar_fixture_expone_las_inconsistencias_esperadas PASSED [ 37%]
+tests/integration/test_seed.py::test_un_flujo_incoherente_se_reporta_sin_abortar PASSED [ 38%]
+tests/integration/test_seed.py::test_una_fila_rechazada_no_detiene_las_demas PASSED [ 39%]
+tests/unit/domain/test_domain_coverage.py::test_usuario_valida_intentos_y_expone_rol PASSED [ 40%]
+tests/unit/domain/test_domain_coverage.py::test_registro_valida_version_y_orden_de_fechas PASSED [ 42%]
+tests/unit/domain/test_domain_coverage.py::test_registro_terminal_y_exclusion_del_calculo PASSED [ 43%]
+tests/unit/domain/test_domain_coverage.py::test_perfil_tarifa_y_ajuste_validan_rangos PASSED [ 44%]
+tests/unit/domain/test_domain_coverage.py::test_contrato_valida_indefinido_montos_y_hc PASSED [ 45%]
+tests/unit/domain/test_domain_coverage.py::test_vigencia_bitacora_evento_catalogo_meta_y_sugerencia_validan PASSED [ 46%]
+tests/unit/domain/test_domain_coverage.py::test_parametro_valida_clave_vigencia_y_valor_entero PASSED [ 47%]
+tests/unit/domain/test_domain_coverage.py::test_resumen_mensual_recalcula_su_id PASSED [ 48%]
+tests/unit/domain/test_domain_coverage.py::test_money_operaciones_y_redondeo PASSED [ 50%]
+tests/unit/domain/test_domain_coverage.py::test_percentage_validaciones_y_conversiones PASSED [ 51%]
+tests/unit/domain/test_domain_coverage.py::test_period_validaciones_y_comparaciones PASSED [ 52%]
+tests/unit/domain/test_domain_coverage.py::test_daterange_sin_solape_devuelve_cero PASSED [ 53%]
+tests/unit/domain/test_domain_foundation.py::test_orden_de_flujos_y_probabilidades_sugeridas PASSED [ 54%]
+tests/unit/domain/test_domain_foundation.py::test_bucket_y_motivos_que_prorratean PASSED [ 55%]
+tests/unit/domain/test_domain_foundation.py::test_entidades_validan_rangos_basicos PASSED [ 56%]
+tests/unit/domain/test_domain_foundation.py::test_contrato_indefinido_no_admite_fecha_fin PASSED [ 57%]
+tests/unit/domain/test_domain_foundation.py::test_errores_serializables_y_jerarquia PASSED [ 59%]
+tests/unit/domain/test_domain_foundation.py::test_contrato_de_error_usa_code_y_message_con_alias_en_espanol PASSED [ 60%]
+tests/unit/domain/test_domain_foundation.py::test_errores_de_autorizacion_y_alias_de_compatibilidad PASSED [ 61%]
+tests/unit/domain/test_domain_foundation.py::test_codigos_acordados_con_t028_y_sus_alias PASSED [ 62%]
+tests/unit/domain/test_domain_foundation.py::test_puertos_de_aplicacion_existen_y_son_protocolos PASSED [ 63%]
+tests/unit/domain/test_domain_foundation.py::test_semilla_es_determinista_y_sin_datos_reales PASSED [ 64%]
+tests/unit/domain/test_domain_foundation.py::test_semilla_tipos_y_parametros_base PASSED [ 65%]
+tests/unit/domain/test_engine_cases.py::test_c01_base_y_mab_de_oportunidad_pendiente PASSED [ 67%]
+tests/unit/domain/test_engine_cases.py::test_c02_misma_base_en_adjudicada_con_90_por_ciento PASSED [ 68%]
+tests/unit/domain/test_engine_cases.py::test_c03_perfiles_seleccionados_al_100_por_ciento PASSED [ 69%]
+tests/unit/domain/test_engine_cases.py::test_c04_dos_perfiles PASSED     [ 70%]
+tests/unit/domain/test_engine_cases.py::test_c05_prorrateo_de_ingreso_el_dia_16 PASSED [ 71%]
+tests/unit/domain/test_engine_cases.py::test_c06_continuidad_aporta_backlog_y_nunca_mab PASSED [ 72%]
+tests/unit/domain/test_engine_cases.py::test_c07_gap_y_cobertura_de_la_meta PASSED [ 73%]
+tests/unit/domain/test_engine_cases.py::test_c08_cambio_de_confiabilidad_reduce_la_mab PASSED [ 75%]
+tests/unit/domain/test_engine_cases.py::test_ac05_probabilidad_100_no_se_suma_tambien_al_backlog PASSED [ 76%]
+tests/unit/domain/test_engine_cases.py::test_un_registro_pertenece_a_una_sola_bolsa_por_mes PASSED [ 77%]
+tests/unit/domain/test_engine_rounding.py::test_redondeo_half_up_a_clp PASSED [ 78%]
+tests/unit/domain/test_engine_rounding.py::test_money_y_porcentajes_validan_y_convierten PASSED [ 79%]
+tests/unit/domain/test_engine_rounding.py::test_periodo_y_rango_de_fechas PASSED [ 80%]
+tests/unit/domain/test_engine_rounding.py::test_fraccion_activa_por_dias_y_fin_exclusivo_del_perfil PASSED [ 81%]
+tests/unit/domain/test_engine_rounding.py::test_redondeo_al_final_del_registro_mes PASSED [ 82%]
+tests/unit/domain/test_engine_rounding.py::test_grilla_hc_altas_bajas_y_cierre PASSED [ 84%]
+tests/unit/domain/test_engine_rounding.py::test_grilla_hc_bloquea_cierre_negativo PASSED [ 85%]
+tests/unit/domain/test_engine_rounding.py::test_horas_con_vigencia_mensual_sin_reescribir_el_pasado PASSED [ 86%]
+tests/unit/domain/test_engine_rounding.py::test_vigencias_de_probabilidad_y_confiabilidad_por_mes PASSED [ 87%]
+tests/unit/domain/test_engine_rounding.py::test_gap_sin_meta_no_se_calcula PASSED [ 88%]
+tests/unit/domain/test_states.py::test_adjudicar_cambia_tipo_y_fija_probabilidad_en_100 PASSED [ 89%]
+tests/unit/domain/test_states.py::test_pendiente_no_salta_a_en_curso_y_no_modifica_nada PASSED [ 90%]
+tests/unit/domain/test_states.py::test_adjudicar_sin_perfil_se_bloquea[ADJUDICADA] PASSED [ 92%]
+tests/unit/domain/test_states.py::test_toda_transicion_exige_motivo PASSED [ 93%]
+tests/unit/domain/test_states.py::test_standby_guarda_estado_previo_y_la_reactivacion_lo_restaura PASSED [ 94%]
+tests/unit/domain/test_states.py::test_cerrar_y_cancelar_exigen_su_motivo PASSED [ 95%]
+tests/unit/domain/test_states.py::test_solo_operaciones_reabre_y_una_demanda_vuelve_adjudicada PASSED [ 96%]
+tests/unit/domain/test_states.py::test_continuidad_no_pasa_por_pendiente_ni_cambia_de_flujo PASSED [ 97%]
+tests/unit/domain/test_states.py::test_flujo_en_pendiente_sugiere_probabilidad_y_confirmar_perfiles_exige_adjudicar PASSED [ 98%]
+tests/unit/domain/test_states.py::test_permisos_de_edicion_por_rol_y_propiedad PASSED [100%]
+
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.12.3-final-0 ________________
+
+Name                                            Stmts   Miss  Cover
+-------------------------------------------------------------------
+src/proyecta/domain/__init__.py                     0      0   100%
+src/proyecta/domain/engine/__init__.py              6      0   100%
+src/proyecta/domain/engine/active_fraction.py      31      3    90%
+src/proyecta/domain/engine/bags.py                 47     17    64%
+src/proyecta/domain/engine/base.py                 73     19    74%
+src/proyecta/domain/engine/gap.py                  34      2    94%
+src/proyecta/domain/engine/headcount.py            48     16    67%
+src/proyecta/domain/engine/service.py             169     14    92%
+src/proyecta/domain/engine/vigencias.py            48      7    85%
+src/proyecta/domain/entities.py                   356      1    99%
+src/proyecta/domain/enums.py                      114      0   100%
+src/proyecta/domain/errors.py                      82      1    99%
+src/proyecta/domain/states.py                      99      6    94%
+src/proyecta/domain/value_objects.py              141      1    99%
+-------------------------------------------------------------------
+TOTAL                                            1248     87    93%
+============================== 88 passed in 4.45s ==============================

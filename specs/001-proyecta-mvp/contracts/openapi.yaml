@@ -1,0 +1,2103 @@
+openapi: 3.1.0
+info:
+  title: Proyecta API
+  version: 1.0.0
+  description: |
+    Contrato REST del MVP de Proyecta. La autenticación es por sesión de servidor
+    (cookie HttpOnly). Las rutas de bitácora y auditoría no exponen PUT ni DELETE:
+    una corrección es una entrada nueva y el servidor responde 405 a esos métodos.
+    No existe migración real en el MVP; la carga inicial es sintética y se ejecuta
+    fuera de esta API.
+servers:
+  - url: /api/v1
+tags:
+  - name: Auth
+    description: Sesión, cierre de sesión y usuario actual
+  - name: Registros
+    description: Oportunidades, demandas y continuidades
+  - name: Perfiles
+    description: Perfiles, HC y tarifas
+  - name: Estados
+    description: Transiciones de estado y flujo
+  - name: Bitacora
+    description: Seguimiento cronológico inmutable
+  - name: Auditoria
+    description: Consulta de eventos de auditoría
+  - name: Backlog
+    description: Contratos de continuidad
+  - name: Metas
+    description: Metas comerciales y gap
+  - name: Dashboard
+    description: Indicadores y series
+  - name: Calidad
+    description: Semáforo y pendientes
+  - name: Cortes
+    description: Cierre de período y puente
+  - name: Simulacion
+    description: Escenarios sin persistencia
+  - name: IA
+    description: Sugerencias con aprobación humana
+  - name: Exportacion
+    description: Exportación a Excel
+security:
+  - sessionCookie: []
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Iniciar sesión
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Sesión iniciada
+          headers:
+            Set-Cookie:
+              description: Cookie de sesión HttpOnly, Secure y SameSite=Strict
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SesionResponse'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Cerrar sesión
+      responses:
+        '204':
+          description: Sesión cerrada
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Usuario y CSRF de la sesión actual
+      responses:
+        '200':
+          description: Sesión vigente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SesionResponse'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+  /registros:
+    get:
+      tags: [Registros]
+      summary: Listar registros con filtros y paginación
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/OwnerId'
+        - $ref: '#/components/parameters/SectorId'
+        - $ref: '#/components/parameters/Estado'
+        - $ref: '#/components/parameters/Tipo'
+        - $ref: '#/components/parameters/Flujo'
+        - $ref: '#/components/parameters/Q'
+        - $ref: '#/components/parameters/FechaDesde'
+        - $ref: '#/components/parameters/FechaHasta'
+      responses:
+        '200':
+          description: Lista paginada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistroPage'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+    post:
+      tags: [Registros]
+      summary: Crear una oportunidad, demanda o continuidad
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistroCreate'
+      responses:
+        '201':
+          description: Registro creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Registro'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '422':
+          $ref: '#/components/responses/Validacion'
+  /registros/{id}:
+    parameters:
+      - $ref: '#/components/parameters/RegistroId'
+    get:
+      tags: [Registros]
+      summary: Obtener un registro
+      responses:
+        '200':
+          description: Registro
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Registro'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+    patch:
+      tags: [Registros]
+      summary: Actualizar un registro con control de versión
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistroUpdate'
+      responses:
+        '200':
+          description: Registro actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Registro'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+        '422':
+          $ref: '#/components/responses/Validacion'
+  /registros/{id}/estado:
+    parameters:
+      - $ref: '#/components/parameters/RegistroId'
+    post:
+      tags: [Estados]
+      summary: Cambiar de estado con motivo y fecha efectiva
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EstadoRequest'
+      responses:
+        '200':
+          description: Transición aplicada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Registro'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+        '422':
+          $ref: '#/components/responses/Validacion'
+  /registros/{id}/flujo:
+    parameters:
+      - $ref: '#/components/parameters/RegistroId'
+    post:
+      tags: [Estados]
+      summary: Cambiar de etapa comercial
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FlujoRequest'
+      responses:
+        '200':
+          description: Flujo actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Registro'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+        '422':
+          $ref: '#/components/responses/Validacion'
+  /registros/{id}/perfiles:
+    parameters:
+      - $ref: '#/components/parameters/RegistroId'
+    get:
+      tags: [Perfiles]
+      summary: Listar perfiles del registro
+      responses:
+        '200':
+          description: Perfiles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Perfil'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+    post:
+      tags: [Perfiles]
+      summary: Agregar un perfil
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PerfilCreate'
+      responses:
+        '201':
+          description: Perfil creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Perfil'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '422':
+          $ref: '#/components/responses/Validacion'
+  /registros/{id}/perfiles/{perfilId}:
+    parameters:
+      - $ref: '#/components/parameters/RegistroId'
+      - $ref: '#/components/parameters/PerfilId'
+    patch:
+      tags: [Perfiles]
+      summary: Actualizar o dar de baja un perfil
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PerfilUpdate'
+      responses:
+        '200':
+          description: Perfil actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Perfil'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+        '422':
+          $ref: '#/components/responses/Validacion'
+  /registros/{id}/tarifas:
+    parameters:
+      - $ref: '#/components/parameters/RegistroId'
+    get:
+      tags: [Perfiles]
+      summary: Listar tarifas del registro
+      responses:
+        '200':
+          description: Tarifas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tarifa'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+    post:
+      tags: [Perfiles]
+      summary: Agregar una tarifa con vigencia
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TarifaCreate'
+      responses:
+        '201':
+          description: Tarifa creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tarifa'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '422':
+          $ref: '#/components/responses/Validacion'
+  /registros/{id}/bitacora:
+    parameters:
+      - $ref: '#/components/parameters/RegistroId'
+    get:
+      tags: [Bitacora]
+      summary: Consultar la bitácora
+      responses:
+        '200':
+          description: Entradas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BitacoraEntry'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '405':
+          $ref: '#/components/responses/MetodoNoPermitido'
+    post:
+      tags: [Bitacora]
+      summary: Agregar una entrada de bitácora
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BitacoraCreate'
+      responses:
+        '201':
+          description: Entrada creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BitacoraEntry'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '422':
+          $ref: '#/components/responses/Validacion'
+  /registros/{id}/auditoria:
+    parameters:
+      - $ref: '#/components/parameters/RegistroId'
+    get:
+      tags: [Auditoria]
+      summary: Consultar la auditoría del registro
+      parameters:
+        - $ref: '#/components/parameters/Campo'
+        - $ref: '#/components/parameters/FechaDesde'
+        - $ref: '#/components/parameters/FechaHasta'
+      responses:
+        '200':
+          description: Eventos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventoAuditoria'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '405':
+          $ref: '#/components/responses/MetodoNoPermitido'
+  /contratos:
+    get:
+      tags: [Backlog]
+      summary: Listar contratos de continuidad
+      responses:
+        '200':
+          description: Contratos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Contrato'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+    post:
+      tags: [Backlog]
+      summary: Crear un contrato de continuidad
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContratoCreate'
+      responses:
+        '201':
+          description: Contrato creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contrato'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '422':
+          $ref: '#/components/responses/Validacion'
+  /contratos/{id}:
+    parameters:
+      - $ref: '#/components/parameters/RegistroId'
+    get:
+      tags: [Backlog]
+      summary: Obtener un contrato
+      responses:
+        '200':
+          description: Contrato
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contrato'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+    patch:
+      tags: [Backlog]
+      summary: Actualizar un contrato
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContratoUpdate'
+      responses:
+        '200':
+          description: Contrato actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contrato'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+        '422':
+          $ref: '#/components/responses/Validacion'
+  /metas:
+    get:
+      tags: [Metas]
+      summary: Listar metas
+      parameters:
+        - $ref: '#/components/parameters/SectorId'
+        - $ref: '#/components/parameters/Mes'
+      responses:
+        '200':
+          description: Metas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+    post:
+      tags: [Metas]
+      summary: Crear o actualizar una meta
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetaUpsert'
+      responses:
+        '200':
+          description: Meta guardada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '422':
+          $ref: '#/components/responses/Validacion'
+  /metas/{sectorId}/{mes}:
+    parameters:
+      - $ref: '#/components/parameters/SectorIdPath'
+      - $ref: '#/components/parameters/MesPath'
+    get:
+      tags: [Metas]
+      summary: Obtener la meta de un sector y mes
+      responses:
+        '200':
+          description: Meta
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+    put:
+      tags: [Metas]
+      summary: Reemplazar la meta de un sector y mes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetaUpsert'
+      responses:
+        '200':
+          description: Meta guardada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '422':
+          $ref: '#/components/responses/Validacion'
+  /parametros:
+    get:
+      tags: [Dashboard]
+      summary: Listar parámetros vigentes e históricos
+      responses:
+        '200':
+          description: Parámetros
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Parametro'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+    post:
+      tags: [Dashboard]
+      summary: Crear una nueva vigencia de parámetro
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParametroCreate'
+      responses:
+        '201':
+          description: Parámetro creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Parametro'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '422':
+          $ref: '#/components/responses/Validacion'
+  /catalogos:
+    get:
+      tags: [Dashboard]
+      summary: Listar catálogos activos
+      parameters:
+        - $ref: '#/components/parameters/TipoCatalogo'
+      responses:
+        '200':
+          description: Catálogos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Catalogo'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /usuarios:
+    get:
+      tags: [Auth]
+      summary: Listar usuarios (Operaciones)
+      responses:
+        '200':
+          description: Usuarios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Usuario'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+    post:
+      tags: [Auth]
+      summary: Crear usuario (Operaciones)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UsuarioCreate'
+      responses:
+        '201':
+          description: Usuario creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Usuario'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '422':
+          $ref: '#/components/responses/Validacion'
+  /dashboard:
+    get:
+      tags: [Dashboard]
+      summary: Indicadores del dashboard con filtros y detalle
+      parameters:
+        - $ref: '#/components/parameters/Periodo'
+        - $ref: '#/components/parameters/SectorId'
+        - $ref: '#/components/parameters/OwnerId'
+        - $ref: '#/components/parameters/Tipo'
+        - $ref: '#/components/parameters/Estado'
+      responses:
+        '200':
+          description: Indicadores
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dashboard'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /forecast:
+    get:
+      tags: [Dashboard]
+      summary: Serie de Forecast de 12 meses
+      parameters:
+        - $ref: '#/components/parameters/Periodo'
+        - $ref: '#/components/parameters/SectorId'
+      responses:
+        '200':
+          description: Serie mensual
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Forecast'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /calidad:
+    get:
+      tags: [Calidad]
+      summary: Semáforo y pendientes de calidad
+      parameters:
+        - $ref: '#/components/parameters/OwnerId'
+      responses:
+        '200':
+          description: Calidad
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Calidad'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /cortes:
+    get:
+      tags: [Cortes]
+      summary: Listar cortes
+      responses:
+        '200':
+          description: Cortes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Corte'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+    post:
+      tags: [Cortes]
+      summary: Cerrar un período
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CorteRequest'
+      responses:
+        '202':
+          description: Cierre iniciado; el corte queda en estado CREANDO
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Corte'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '422':
+          $ref: '#/components/responses/Validacion'
+  /cortes/{id}/puente:
+    parameters:
+      - $ref: '#/components/parameters/CorteId'
+      - $ref: '#/components/parameters/CorteContra'
+    get:
+      tags: [Cortes]
+      summary: Comparar dos cortes y descomponer la variación
+      responses:
+        '200':
+          description: Puente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Puente'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+  /simulaciones:
+    post:
+      tags: [Simulacion]
+      summary: Calcular un escenario sin persistir ni cambiar estados
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimulacionRequest'
+      responses:
+        '200':
+          description: Resultado rotulado como simulado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimulacionResponse'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '422':
+          $ref: '#/components/responses/Validacion'
+  /sugerencias:
+    get:
+      tags: [IA]
+      summary: Listar sugerencias pendientes
+      responses:
+        '200':
+          description: Sugerencias
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Sugerencia'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /sugerencias/{id}/aceptar:
+    parameters:
+      - $ref: '#/components/parameters/SugerenciaId'
+    post:
+      tags: [IA]
+      summary: Aceptar una sugerencia con aprobación humana
+      responses:
+        '200':
+          description: Sugerencia aceptada y auditada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sugerencia'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+  /sugerencias/{id}/descartar:
+    parameters:
+      - $ref: '#/components/parameters/SugerenciaId'
+    post:
+      tags: [IA]
+      summary: Descartar una sugerencia
+      responses:
+        '200':
+          description: Sugerencia descartada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sugerencia'
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /exportaciones/registros:
+    get:
+      tags: [Exportacion]
+      summary: Exportar registros filtrados a Excel
+      parameters:
+        - $ref: '#/components/parameters/SectorId'
+        - $ref: '#/components/parameters/Estado'
+        - $ref: '#/components/parameters/OwnerId'
+      responses:
+        '200':
+          description: Archivo .xlsx
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /exportaciones/dashboard:
+    get:
+      tags: [Exportacion]
+      summary: Exportar el dashboard a Excel
+      parameters:
+        - $ref: '#/components/parameters/Periodo'
+        - $ref: '#/components/parameters/SectorId'
+      responses:
+        '200':
+          description: Archivo .xlsx
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /exportaciones/auditoria:
+    get:
+      tags: [Exportacion]
+      summary: Exportar auditoría filtrada a Excel
+      parameters:
+        - $ref: '#/components/parameters/RegistroIdQuery'
+        - $ref: '#/components/parameters/FechaDesde'
+        - $ref: '#/components/parameters/FechaHasta'
+      responses:
+        '200':
+          description: Archivo .xlsx
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/NoAutorizado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: proyecta_session
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: page_size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    RegistroId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    RegistroIdQuery:
+      name: registro_id
+      in: query
+      schema:
+        type: string
+        format: uuid
+    PerfilId:
+      name: perfilId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    CorteId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    CorteContra:
+      name: contra
+      in: query
+      required: true
+      schema:
+        type: string
+    SugerenciaId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    OwnerId:
+      name: owner_id
+      in: query
+      schema:
+        type: string
+        format: uuid
+    SectorId:
+      name: sector_id
+      in: query
+      schema:
+        type: string
+    SectorIdPath:
+      name: sectorId
+      in: path
+      required: true
+      schema:
+        type: string
+    Estado:
+      name: estado
+      in: query
+      schema:
+        type: string
+        enum: [PENDIENTE, ADJUDICADA, EN_CURSO, STANDBY, CERRADA, CANCELADA]
+    Tipo:
+      name: tipo
+      in: query
+      schema:
+        type: string
+        enum: [OPORTUNIDAD, DEMANDA, CONTINUIDAD]
+    Flujo:
+      name: flujo
+      in: query
+      schema:
+        type: string
+        enum:
+          - PENDIENTE_RFP
+          - PROPUESTA_EN_CURSO
+          - PROPUESTA_ENTREGADA
+          - PENDIENTE_CANDIDATOS
+          - VALIDANDO_CANDIDATOS
+          - PERFILES_SELECCIONADOS
+    Q:
+      name: q
+      in: query
+      schema:
+        type: string
+        maxLength: 100
+    FechaDesde:
+      name: fecha_desde
+      in: query
+      schema:
+        type: string
+        format: date
+    FechaHasta:
+      name: fecha_hasta
+      in: query
+      schema:
+        type: string
+        format: date
+    Campo:
+      name: campo
+      in: query
+      schema:
+        type: string
+        maxLength: 60
+    Mes:
+      name: mes
+      in: query
+      schema:
+        type: string
+        pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$'
+    MesPath:
+      name: mes
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$'
+    Periodo:
+      name: periodo
+      in: query
+      schema:
+        type: string
+        pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$'
+    TipoCatalogo:
+      name: tipo
+      in: query
+      schema:
+        type: string
+        enum: [SECTOR, CLIENTE, MANAGER, PERFIL, TECNOLOGIA, STUDIO_PRACTICA, MOTIVO_CIERRE, ALIAS]
+  schemas:
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+          maxLength: 200
+    SesionResponse:
+      type: object
+      required: [usuario, csrf_token]
+      properties:
+        usuario:
+          $ref: '#/components/schemas/Usuario'
+        csrf_token:
+          type: string
+    Usuario:
+      type: object
+      required: [id, nombre, email, rol, activo]
+      properties:
+        id:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+        email:
+          type: string
+          format: email
+        rol:
+          type: string
+          enum: [LIDER, OPERACIONES, EJECUTIVO]
+        sectores:
+          type: array
+          items:
+            type: string
+        activo:
+          type: boolean
+    UsuarioCreate:
+      type: object
+      required: [nombre, email, rol, password]
+      properties:
+        nombre:
+          type: string
+        email:
+          type: string
+          format: email
+        rol:
+          type: string
+          enum: [LIDER, OPERACIONES, EJECUTIVO]
+        password:
+          type: string
+          minLength: 8
+          maxLength: 200
+        sectores:
+          type: array
+          items:
+            type: string
+    Registro:
+      type: object
+      required: [id, codigo, tipo, estado, flujo, probabilidad, confiabilidad, version]
+      properties:
+        id:
+          type: string
+          format: uuid
+        codigo:
+          type: string
+          pattern: '^OPD-[0-9]{4}$'
+        id_externo:
+          type: string
+        tipo:
+          type: string
+          enum: [OPORTUNIDAD, DEMANDA, CONTINUIDAD]
+        estado:
+          type: string
+          enum: [PENDIENTE, ADJUDICADA, EN_CURSO, STANDBY, CERRADA, CANCELADA]
+        flujo:
+          type: string
+          enum:
+            - PENDIENTE_RFP
+            - PROPUESTA_EN_CURSO
+            - PROPUESTA_ENTREGADA
+            - PENDIENTE_CANDIDATOS
+            - VALIDANDO_CANDIDATOS
+            - PERFILES_SELECCIONADOS
+        probabilidad:
+          type: number
+          minimum: 0
+          maximum: 1
+        confiabilidad:
+          type: number
+          minimum: 0
+          maximum: 1
+        manager_id:
+          type: string
+        owner_id:
+          type: string
+          format: uuid
+        sector_id:
+          type: string
+        cliente_id:
+          type: string
+        servicio_proyecto:
+          type: string
+        modalidad:
+          type: string
+          enum: [NTT, SUBCONTRATACION]
+        studio:
+          type: boolean
+        studio_practica_id:
+          type: string
+        cuenta:
+          type: string
+        tecnologia_back:
+          type: array
+          items:
+            type: string
+        tecnologia_front:
+          type: array
+          items:
+            type: string
+        fecha_creacion:
+          type: string
+          format: date
+        fecha_adjudicacion:
+          type: string
+          format: date
+        fecha_cancelacion:
+          type: string
+          format: date
+        fecha_cierre:
+          type: string
+          format: date
+        fecha_ingreso:
+          type: string
+          format: date
+        fecha_fin_vigencia:
+          type: string
+          format: date
+        en_staffing:
+          type: boolean
+        en_invoicing:
+          type: boolean
+        observaciones:
+          type: string
+        motivo_cierre_id:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+        creado_en:
+          type: string
+          format: date-time
+        actualizado_en:
+          type: string
+          format: date-time
+    RegistroCreate:
+      type: object
+      required:
+        - tipo
+        - manager_id
+        - owner_id
+        - sector_id
+        - cliente_id
+        - servicio_proyecto
+        - modalidad
+        - studio
+        - tecnologia_back
+        - tecnologia_front
+        - fecha_creacion
+      properties:
+        tipo:
+          type: string
+          enum: [OPORTUNIDAD, DEMANDA, CONTINUIDAD]
+        id_externo:
+          type: string
+        manager_id:
+          type: string
+        owner_id:
+          type: string
+          format: uuid
+        sector_id:
+          type: string
+        cliente_id:
+          type: string
+        servicio_proyecto:
+          type: string
+          maxLength: 200
+        modalidad:
+          type: string
+          enum: [NTT, SUBCONTRATACION]
+        studio:
+          type: boolean
+        studio_practica_id:
+          type: string
+        cuenta:
+          type: string
+          maxLength: 50
+        tecnologia_back:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        tecnologia_front:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        fecha_creacion:
+          type: string
+          format: date
+        fecha_adjudicacion:
+          type: string
+          format: date
+        fecha_ingreso:
+          type: string
+          format: date
+        fecha_fin_vigencia:
+          type: string
+          format: date
+        en_staffing:
+          type: boolean
+        en_invoicing:
+          type: boolean
+        observaciones:
+          type: string
+          maxLength: 2000
+        motivo_demanda_directa:
+          type: string
+          maxLength: 300
+    RegistroUpdate:
+      type: object
+      required: [version]
+      properties:
+        version:
+          type: integer
+          minimum: 1
+        manager_id:
+          type: string
+        owner_id:
+          type: string
+          format: uuid
+        sector_id:
+          type: string
+        cliente_id:
+          type: string
+        servicio_proyecto:
+          type: string
+          maxLength: 200
+        modalidad:
+          type: string
+          enum: [NTT, SUBCONTRATACION]
+        studio:
+          type: boolean
+        studio_practica_id:
+          type: string
+        cuenta:
+          type: string
+        tecnologia_back:
+          type: array
+          items:
+            type: string
+        tecnologia_front:
+          type: array
+          items:
+            type: string
+        fecha_adjudicacion:
+          type: string
+          format: date
+        fecha_cancelacion:
+          type: string
+          format: date
+        fecha_ingreso:
+          type: string
+          format: date
+        fecha_fin_vigencia:
+          type: string
+          format: date
+        en_staffing:
+          type: boolean
+        en_invoicing:
+          type: boolean
+        observaciones:
+          type: string
+          maxLength: 2000
+        motivo:
+          type: string
+          maxLength: 300
+    EstadoRequest:
+      type: object
+      required: [estado, fecha_efectiva, motivo]
+      properties:
+        estado:
+          type: string
+          enum: [PENDIENTE, ADJUDICADA, EN_CURSO, STANDBY, CERRADA, CANCELADA]
+        fecha_efectiva:
+          type: string
+          format: date
+        motivo:
+          type: string
+          maxLength: 300
+        motivo_cierre_id:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+    FlujoRequest:
+      type: object
+      required: [flujo, fecha_efectiva, motivo]
+      properties:
+        flujo:
+          type: string
+          enum:
+            - PENDIENTE_RFP
+            - PROPUESTA_EN_CURSO
+            - PROPUESTA_ENTREGADA
+            - PENDIENTE_CANDIDATOS
+            - VALIDANDO_CANDIDATOS
+            - PERFILES_SELECCIONADOS
+        fecha_efectiva:
+          type: string
+          format: date
+        motivo:
+          type: string
+          maxLength: 300
+        version:
+          type: integer
+          minimum: 1
+    Perfil:
+      type: object
+      required: [id, registro_id, nombre_perfil_id, hc, dedicacion_pct, fecha_ingreso]
+      properties:
+        id:
+          type: string
+          format: uuid
+        registro_id:
+          type: string
+          format: uuid
+        nombre_perfil_id:
+          type: string
+        hc:
+          type: integer
+          minimum: 1
+          maximum: 999
+        dedicacion_pct:
+          type: integer
+          minimum: 1
+          maximum: 100
+        fecha_ingreso:
+          type: string
+          format: date
+        fecha_fin:
+          type: string
+          format: date
+        orden:
+          type: integer
+    PerfilCreate:
+      type: object
+      required: [nombre_perfil_id, hc, dedicacion_pct, fecha_ingreso]
+      properties:
+        nombre_perfil_id:
+          type: string
+        hc:
+          type: integer
+          minimum: 1
+          maximum: 999
+        dedicacion_pct:
+          type: integer
+          minimum: 1
+          maximum: 100
+        fecha_ingreso:
+          type: string
+          format: date
+        fecha_fin:
+          type: string
+          format: date
+        orden:
+          type: integer
+    PerfilUpdate:
+      type: object
+      properties:
+        nombre_perfil_id:
+          type: string
+        hc:
+          type: integer
+          minimum: 1
+          maximum: 999
+        dedicacion_pct:
+          type: integer
+          minimum: 1
+          maximum: 100
+        fecha_ingreso:
+          type: string
+          format: date
+        fecha_fin:
+          type: string
+          format: date
+        orden:
+          type: integer
+    Tarifa:
+      type: object
+      required: [id, perfil_id, tarifa_hora_clp, vigente_desde]
+      properties:
+        id:
+          type: string
+          format: uuid
+        perfil_id:
+          type: string
+          format: uuid
+        tarifa_hora_clp:
+          type: number
+          minimum: 0.01
+        vigente_desde:
+          type: string
+          format: date
+        vigente_hasta:
+          type: string
+          format: date
+        motivo_cambio:
+          type: string
+    TarifaCreate:
+      type: object
+      required: [perfil_id, tarifa_hora_clp, vigente_desde]
+      properties:
+        perfil_id:
+          type: string
+          format: uuid
+        tarifa_hora_clp:
+          type: number
+          minimum: 0.01
+        vigente_desde:
+          type: string
+          format: date
+        vigente_hasta:
+          type: string
+          format: date
+        motivo_cambio:
+          type: string
+          maxLength: 300
+    BitacoraEntry:
+      type: object
+      required: [id, registro_id, tipo_evento, contenido, autor_id, creado_en]
+      properties:
+        id:
+          type: string
+          format: uuid
+        registro_id:
+          type: string
+          format: uuid
+        tipo_evento:
+          type: string
+          enum: [SEGUIMIENTO, DECISION, REUNION, ESTADO, INCIDENCIA, MIGRACION]
+        contenido:
+          type: string
+        proxima_accion:
+          type: string
+        fecha_compromiso:
+          type: string
+          format: date
+        referencia_id:
+          type: string
+          format: uuid
+        autor_id:
+          type: string
+          format: uuid
+        creado_en:
+          type: string
+          format: date-time
+    BitacoraCreate:
+      type: object
+      required: [tipo_evento, contenido]
+      properties:
+        tipo_evento:
+          type: string
+          enum: [SEGUIMIENTO, DECISION, REUNION, ESTADO, INCIDENCIA, MIGRACION]
+        contenido:
+          type: string
+          maxLength: 4000
+        proxima_accion:
+          type: string
+          maxLength: 300
+        fecha_compromiso:
+          type: string
+          format: date
+        referencia_id:
+          type: string
+          format: uuid
+    EventoAuditoria:
+      type: object
+      required: [id, entidad, entidad_id, campo, usuario_id, fecha_hora, origen]
+      properties:
+        id:
+          type: string
+          format: uuid
+        entidad:
+          type: string
+          enum: [REGISTRO, PERFIL, TARIFA, CONTRATO, META, PARAMETRO, USUARIO]
+        entidad_id:
+          type: string
+          format: uuid
+        registro_id:
+          type: string
+          format: uuid
+        campo:
+          type: string
+        valor_anterior:
+          type: object
+          additionalProperties: true
+        valor_nuevo:
+          type: object
+          additionalProperties: true
+        usuario_id:
+          type: string
+          format: uuid
+        fecha_hora:
+          type: string
+          format: date-time
+        motivo:
+          type: string
+        fecha_efectiva:
+          type: string
+          format: date
+        mab_antes:
+          type: integer
+        mab_despues:
+          type: integer
+        forecast_antes:
+          type: integer
+        forecast_despues:
+          type: integer
+        origen:
+          type: string
+          enum: [UI, API, CARGA, IA, MIGRACION]
+    Contrato:
+      type: object
+      required: [registro_id, codigo_contrato, fecha_inicio, es_indefinido, hc_comprometido, estado_contrato]
+      properties:
+        registro_id:
+          type: string
+          format: uuid
+        codigo_contrato:
+          type: string
+        fecha_inicio:
+          type: string
+          format: date
+        fecha_fin:
+          type: string
+          format: date
+        es_indefinido:
+          type: boolean
+        monto_mensual_clp:
+          type: integer
+          minimum: 0
+        hc_comprometido:
+          type: integer
+          minimum: 0
+        renovacion_automatica:
+          type: boolean
+        aviso_termino_dias:
+          type: integer
+          minimum: 0
+        estado_contrato:
+          type: string
+          enum: [VIGENTE, POR_VENCER, VENCIDO]
+        observaciones:
+          type: string
+    ContratoCreate:
+      type: object
+      required: [registro_id, codigo_contrato, fecha_inicio, es_indefinido, hc_comprometido]
+      properties:
+        registro_id:
+          type: string
+          format: uuid
+        codigo_contrato:
+          type: string
+        fecha_inicio:
+          type: string
+          format: date
+        fecha_fin:
+          type: string
+          format: date
+        es_indefinido:
+          type: boolean
+        monto_mensual_clp:
+          type: integer
+          minimum: 0
+        hc_comprometido:
+          type: integer
+          minimum: 0
+        renovacion_automatica:
+          type: boolean
+        aviso_termino_dias:
+          type: integer
+          minimum: 0
+        observaciones:
+          type: string
+    ContratoUpdate:
+      type: object
+      properties:
+        fecha_fin:
+          type: string
+          format: date
+        es_indefinido:
+          type: boolean
+        monto_mensual_clp:
+          type: integer
+          minimum: 0
+        hc_comprometido:
+          type: integer
+          minimum: 0
+        renovacion_automatica:
+          type: boolean
+        aviso_termino_dias:
+          type: integer
+          minimum: 0
+        observaciones:
+          type: string
+    Meta:
+      type: object
+      required: [sector_id, mes, monto_clp]
+      properties:
+        sector_id:
+          type: string
+        mes:
+          type: string
+          pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$'
+        monto_clp:
+          type: integer
+          minimum: 0
+        actualizado_en:
+          type: string
+          format: date-time
+    MetaUpsert:
+      type: object
+      required: [monto_clp]
+      properties:
+        monto_clp:
+          type: integer
+          minimum: 0
+        motivo:
+          type: string
+          maxLength: 300
+    Parametro:
+      type: object
+      required: [clave, valor, tipo, vigente_desde]
+      properties:
+        clave:
+          type: string
+          enum: [horas_mensuales, confiabilidad_inicial, aviso_termino_dias, umbral_alerta]
+        valor:
+          oneOf:
+            - type: integer
+            - type: number
+            - type: string
+        tipo:
+          type: string
+          enum: [ENTERO, DECIMAL, TEXTO]
+        vigente_desde:
+          type: string
+          format: date
+        vigente_hasta:
+          type: string
+          format: date
+    ParametroCreate:
+      type: object
+      required: [clave, valor, tipo, vigente_desde, motivo]
+      properties:
+        clave:
+          type: string
+          enum: [horas_mensuales, confiabilidad_inicial, aviso_termino_dias, umbral_alerta]
+        valor:
+          oneOf:
+            - type: integer
+            - type: number
+            - type: string
+        tipo:
+          type: string
+          enum: [ENTERO, DECIMAL, TEXTO]
+        vigente_desde:
+          type: string
+          format: date
+        motivo:
+          type: string
+          maxLength: 300
+    Catalogo:
+      type: object
+      required: [tipo, codigo, etiqueta, activo]
+      properties:
+        tipo:
+          type: string
+          enum: [SECTOR, CLIENTE, MANAGER, PERFIL, TECNOLOGIA, STUDIO_PRACTICA, MOTIVO_CIERRE, ALIAS]
+        codigo:
+          type: string
+        etiqueta:
+          type: string
+        orden:
+          type: integer
+        activo:
+          type: boolean
+        padre_id:
+          type: string
+    Dashboard:
+      type: object
+      required:
+        - periodo
+        - oportunidades_activas
+        - demandas_confirmadas
+        - hc_proyectado
+        - ingresos_potenciales
+        - mab
+        - forecast
+        - probabilidad_promedio
+        - confiabilidad_promedio
+        - proximos_ingresos
+        - por_cliente_sector
+        - por_responsable
+        - backlog_contractual
+        - meta
+        - gap
+        - calidad
+      properties:
+        periodo:
+          type: string
+          pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$'
+        oportunidades_activas:
+          type: integer
+        demandas_confirmadas:
+          type: integer
+        hc_proyectado:
+          type: integer
+        ingresos_potenciales:
+          type: integer
+        mab:
+          type: integer
+        forecast:
+          type: integer
+        probabilidad_promedio:
+          type: number
+        confiabilidad_promedio:
+          type: number
+        proximos_ingresos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Registro'
+        por_cliente_sector:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        por_responsable:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        backlog_contractual:
+          type: integer
+        meta:
+          type: integer
+        gap:
+          type: integer
+        calidad:
+          $ref: '#/components/schemas/CalidadResumen'
+    Forecast:
+      type: object
+      required: [periodo, meses]
+      properties:
+        periodo:
+          type: string
+          pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$'
+        meses:
+          type: array
+          items:
+            type: object
+            required: [mes, backlog_contractual, mab, forecast, hc]
+            properties:
+              mes:
+                type: string
+                pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$'
+              backlog_contractual:
+                type: integer
+              mab:
+                type: integer
+              forecast:
+                type: integer
+              hc:
+                type: integer
+    CalidadResumen:
+      type: object
+      required: [rojos, amarillos, verdes]
+      properties:
+        rojos:
+          type: integer
+        amarillos:
+          type: integer
+        verdes:
+          type: integer
+    Calidad:
+      type: object
+      required: [registros]
+      properties:
+        registros:
+          type: array
+          items:
+            type: object
+            required: [registro_id, semaforo, hallazgos]
+            properties:
+              registro_id:
+                type: string
+                format: uuid
+              semaforo:
+                type: string
+                enum: [ROJO, AMARILLO, VERDE]
+              hallazgos:
+                type: array
+                items:
+                  type: object
+                  required: [regla, severidad]
+                  properties:
+                    regla:
+                      type: string
+                    severidad:
+                      type: string
+                      enum: [ROJO, AMARILLO, INFORMATIVO]
+    Corte:
+      type: object
+      required: [id, periodo_referencia, estado, version, fecha_corte]
+      properties:
+        id:
+          type: string
+        periodo_referencia:
+          type: string
+          pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$'
+        estado:
+          type: string
+          enum: [CREANDO, CERRADO, ERROR]
+        version:
+          type: integer
+        fecha_corte:
+          type: string
+          format: date-time
+    CorteRequest:
+      type: object
+      required: [periodo_referencia]
+      properties:
+        periodo_referencia:
+          type: string
+          pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$'
+        motivo:
+          type: string
+          maxLength: 300
+    Puente:
+      type: object
+      required: [corte_base, corte_contra, variacion_total, categorias, redondeo]
+      properties:
+        corte_base:
+          type: string
+        corte_contra:
+          type: string
+        variacion_total:
+          type: integer
+        categorias:
+          type: array
+          items:
+            type: object
+            required: [categoria, monto]
+            properties:
+              categoria:
+                type: string
+                enum:
+                  - NUEVOS
+                  - CERRADOS
+                  - BASE
+                  - PROBABILIDAD
+                  - CONFIABILIDAD
+                  - PARAMETROS
+                  - BACKLOG
+                  - HORIZONTE
+              monto:
+                type: integer
+        redondeo:
+          type: integer
+    SimulacionRequest:
+      type: object
+      required: [periodo]
+      properties:
+        periodo:
+          type: string
+          pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$'
+        probabilidad:
+          type: number
+          minimum: 0
+          maximum: 1
+        confiabilidad:
+          type: number
+          minimum: 0
+          maximum: 1
+        horas_mensuales:
+          type: integer
+          minimum: 1
+        excluir_registro_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+    SimulacionResponse:
+      type: object
+      required: [etiqueta, periodo, meses]
+      properties:
+        etiqueta:
+          type: string
+          const: simulado
+        periodo:
+          type: string
+        meses:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    Sugerencia:
+      type: object
+      required: [id, registro_id, campo, valor_sugerido, estado, version_prompt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        registro_id:
+          type: string
+          format: uuid
+        campo:
+          type: string
+        valor_sugerido:
+          type: object
+          additionalProperties: true
+        cita_bitacora_id:
+          type: string
+          format: uuid
+        estado:
+          type: string
+          enum: [PENDIENTE, ACEPTADA, DESCARTADA]
+        revisor_id:
+          type: string
+          format: uuid
+        version_prompt:
+          type: string
+    RegistroPage:
+      type: object
+      required: [items, total, page, page_size]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Registro'
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+        trace_id:
+          type: string
+  responses:
+    NoAutorizado:
+      description: Sesión ausente o vencida
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Prohibido:
+      description: Rol o propiedad insuficientes
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NoEncontrado:
+      description: Recurso inexistente
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    MetodoNoPermitido:
+      description: La bitácora y la auditoría no admiten edición ni borrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflicto:
+      description: Versión desactualizada o estado incompatible
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Validacion:
+      description: Error de validación de campos o reglas
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    DemasiadosIntentos:
+      description: Cuenta o IP bloqueada por intentos fallidos
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

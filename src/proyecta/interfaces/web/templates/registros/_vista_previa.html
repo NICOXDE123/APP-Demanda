@@ -1,0 +1,11 @@
+{# Fragmento HTMX: cálculo transitorio, no se guarda (FR-009, US3 esc. 6). #}
+<div aria-live="polite">
+{% if errores %}
+  {% for e in errores %}<div class="alert alert-warning py-1 small mb-1">{{ e }}</div>{% endfor %}
+{% else %}
+  <div class="small"><strong>Vista previa ({{ mes.mes|mes }}):</strong> Base {{ mes.base_clp|pesos }} ·
+    MAB {{ mes.mab_clp|pesos }} · Backlog {{ mes.backlog_clp|pesos }} · Forecast {{ mes.forecast_clp|pesos }}
+    · <strong>Forecast 12 meses {{ forecast_12|pesos }}</strong>
+    <span class="text-secondary">(P {{ mes.probabilidad_bp|pct }}, C {{ mes.confiabilidad_bp|pct }}; no se ha guardado nada)</span></div>
+{% endif %}
+</div>

@@ -4,7 +4,7 @@
 **Iniciativa**: Build & Impact 2026 · Fundación NTT DATA Chile  
 **Equipo**: Heavy-Duty · TEC-UCT  
 **Product Owner**: Alfredo San Juan  
-**Fuente de roles**: `docs/fuentes/Heavy-Duty_APPGestionDeLaDemanda_V3.pdf` y `docs/fuentes/resumen_transcripcion_reunion.md`
+**Fuente de roles**: propuesta `Heavy-Duty_APPGestionDeLaDemanda_V3.pdf` (no versionada; la custodia el PO) y `docs/fuentes/resumen_transcripcion_reunion.md`
 
 > Esta es una **propuesta inicial** de asignación por carpetas. La fuente de verdad de las tareas es `specs/001-proyecta-mvp/tasks.md`; el PO puede mover tareas entre integrantes sin cambiar la estructura.
 

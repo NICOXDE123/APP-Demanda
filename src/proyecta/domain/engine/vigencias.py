@@ -37,7 +37,8 @@ def resolver_valor_vigente(
     ]
     if not aplicables:
         return por_defecto_bp
-    return max(aplicables, key=lambda vigencia: vigencia.vigente_desde).valor_bp
+    # Empate en el mismo mes: gana el último registrado (dos cambios en un mes).
+    return max(aplicables, key=lambda vigencia: (vigencia.vigente_desde, vigencia.creado_en)).valor_bp
 
 
 def resolver_horas(
@@ -55,7 +56,7 @@ def resolver_horas(
     ]
     if not aplicables:
         return Decimal(por_defecto)
-    vigente = max(aplicables, key=lambda parametro: parametro.vigente_desde)
+    vigente = max(aplicables, key=lambda parametro: (parametro.vigente_desde, parametro.creado_en))
     try:
         valor = Decimal(str(vigente.valor))
     except Exception as exc:  # pragma: no cover - dato corrupto
