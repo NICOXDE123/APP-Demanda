@@ -1,0 +1,1877 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proyecta · Control de Demanda, Capacidad y Forecast (MVP)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bs-body-bg: #F3F2EE;
+  --bs-surface: #FFFFFF;
+  --bs-elevated: #FAF9F6;
+  --bs-subtle: #EAE8E1;
+  --bs-header: #092226;
+  --bs-header-2: #0E3136;
+  --bs-text: #0F1E22;
+  --bs-secondary: #4A5D62;
+  --bs-muted: #76898E;
+  --bs-primary: #059669;
+  --bs-primary-soft: #D1FAE5;
+  --bs-primary-tint: #ECFDF5;
+  --bs-warning: #C27829;
+  --bs-warning-soft: #FEF3C7;
+  --bs-info: #0D7490;
+  --bs-info-soft: #E0F2FE;
+  --bs-danger: #BE123C;
+  --bs-danger-soft: #FFE4E6;
+  --bs-border: #DCD9D0;
+  --bs-border-strong: #C4C0B5;
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+}
+html[data-theme="dark"] {
+  --bs-body-bg: #071114;
+  --bs-surface: #0D1D22;
+  --bs-elevated: #12272D;
+  --bs-subtle: #173138;
+  --bs-header: #040B0D;
+  --bs-header-2: #0D2227;
+  --bs-text: #ECF3F2;
+  --bs-secondary: #9FB5B8;
+  --bs-muted: #698286;
+  --bs-primary: #10B981;
+  --bs-primary-soft: #064E3B;
+  --bs-primary-tint: #092E26;
+  --bs-warning: #F59E0B;
+  --bs-warning-soft: #452707;
+  --bs-info: #38BDF8;
+  --bs-info-soft: #0C3649;
+  --bs-danger: #FB7185;
+  --bs-danger-soft: #4C0519;
+  --bs-border: #1E3840;
+  --bs-border-strong: #2C4F59;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bs-body-bg); color: var(--bs-text); font-family: var(--font-sans); font-size: 13.5px; line-height: 1.45; }
+button, input, select, textarea { font: inherit; color: inherit; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.num { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* LOGIN MODAL */
+#login-modal {
+  position: fixed; inset: 0; z-index: 200; background: rgba(4, 11, 13, 0.85);
+  display: none; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(6px);
+}
+#login-modal.active { display: flex; }
+.login-box {
+  width: 840px; max-width: 100%; display: grid; grid-template-columns: 1.05fr 1fr;
+  background: var(--bs-surface); border: 1px solid var(--bs-border-strong); border-radius: 14px; overflow: hidden;
+}
+.login-left { background: var(--bs-header); color: #F2F7F6; padding: 32px; display: flex; flex-direction: column; justify-content: space-between; }
+.login-right { padding: 32px; display: flex; flex-direction: column; gap: 14px; }
+.role-btn {
+  width: 100%; text-align: left; padding: 12px 14px; border-radius: 8px;
+  border: 1px solid var(--bs-border-strong); background: var(--bs-elevated); cursor: pointer;
+  display: flex; justify-content: space-between; align-items: center; transition: 0.15s;
+}
+.role-btn:hover { border-color: var(--bs-primary); background: var(--bs-primary-tint); }
+
+/* HEADER */
+.app-header { background: var(--bs-header); color: #F2F7F6; position: sticky; top: 0; z-index: 40; }
+.header-top { display: flex; align-items: center; justify-content: space-between; padding: 10px 24px; border-bottom: 1px solid rgba(255,255,255,0.08); gap: 14px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand-logo { width: 32px; height: 32px; border-radius: 7px; background: var(--bs-primary); color: #041E19; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+.ctrl-select { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.16); color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.ctrl-select option { background: #092226; color: #fff; }
+
+.header-nav { display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 46px; background: var(--bs-header-2); overflow-x: auto; }
+.nav-list { display: flex; height: 100%; gap: 4px; }
+.nav-link {
+  height: 100%; padding: 0 14px; border: none; background: transparent; color: #98B3B0;
+  font-weight: 600; font-size: 12.5px; cursor: pointer; border-bottom: 3px solid transparent;
+  display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+}
+.nav-link.active { color: #34D399; border-bottom-color: #10B981; background: rgba(16,185,129,0.08); }
+.p-tag { font-family: var(--font-mono); font-size: 10px; padding: 1px 6px; border-radius: 4px; background: rgba(16,185,129,0.22); color: #6EE7B7; }
+
+/* SUBBAR FILTERS */
+.subbar { background: var(--bs-surface); border-bottom: 1px solid var(--bs-border); padding: 10px 24px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.sub-pills { display: inline-flex; background: var(--bs-subtle); padding: 3px; border-radius: 8px; border: 1px solid var(--bs-border); gap: 3px; flex-wrap: wrap; }
+.sub-pill { border: none; background: transparent; padding: 5px 11px; border-radius: 6px; font-size: 12px; font-weight: 700; color: var(--bs-secondary); cursor: pointer; }
+.sub-pill.active { background: var(--bs-surface); color: var(--bs-text); border: 1px solid var(--bs-border); }
+.filter-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.f-ctrl { background: var(--bs-elevated); border: 1px solid var(--bs-border-strong); border-radius: 6px; padding: 5px 9px; font-size: 12px; font-weight: 600; }
+
+/* WORKSPACE & CARDS */
+.workspace { max-width: 1540px; margin: 0 auto; padding: 20px 24px 48px; }
+.card { background: var(--bs-surface); border: 1px solid var(--bs-border); border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; }
+.card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.card-title { font-size: 14px; font-weight: 800; }
+.card-sub { font-size: 11.5px; color: var(--bs-muted); margin-top: 2px; }
+
+/* SIMPLIFIED 6-KPI GRID */
+.kpi-grid-6 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+.op-card {
+  background: var(--bs-surface); border: 1px solid var(--bs-border); border-radius: 10px;
+  padding: 14px 16px; cursor: pointer; text-align: left; position: relative; transition: 0.15s;
+}
+.op-card:hover { border-color: var(--bs-primary); background: var(--bs-primary-tint); }
+.op-num { position: absolute; top: 10px; right: 12px; font-family: var(--font-mono); font-size: 10px; color: var(--bs-muted); background: var(--bs-subtle); padding: 1px 6px; border-radius: 4px; }
+.op-lbl { font-size: 10.5px; font-weight: 700; text-transform: uppercase; color: var(--bs-secondary); }
+.op-val { font-family: var(--font-mono); font-size: 20px; font-weight: 700; margin: 5px 0 3px; }
+.op-sub { font-size: 11.5px; color: var(--bs-muted); font-weight: 600; }
+
+.grid-2 { display: grid; grid-template-columns: 1.5fr 1fr; gap: 16px; margin-bottom: 16px; }
+.grid-equal { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+
+/* TABLES */
+.table-wrap { overflow-x: auto; }
+table.tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.tbl th { text-align: left; padding: 10px 12px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; color: var(--bs-secondary); background: var(--bs-elevated); border-bottom: 1px solid var(--bs-border-strong); white-space: nowrap; }
+table.tbl td { padding: 10px 12px; border-bottom: 1px solid var(--bs-border); vertical-align: middle; }
+table.tbl tbody tr { cursor: pointer; }
+table.tbl tbody tr:hover { background: var(--bs-primary-tint); }
+table.tbl tbody tr.selected { background: var(--bs-primary-soft); }
+
+/* BADGES */
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.st-0 { background: var(--bs-subtle); color: var(--bs-secondary); border: 1px solid var(--bs-border-strong); }
+.st-1 { background: var(--bs-warning-soft); color: var(--bs-warning); }
+.st-2 { background: var(--bs-info-soft); color: var(--bs-info); }
+.st-3 { background: var(--bs-primary-soft); color: var(--bs-primary); }
+.st-4, .st-5, .st-6 { background: var(--bs-danger-soft); color: var(--bs-danger); }
+.code-tag { font-family: var(--font-mono); font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 4px; background: var(--bs-subtle); border: 1px solid var(--bs-border); }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+
+/* BUTTONS */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 7px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid var(--bs-border-strong); background: var(--bs-surface); }
+.btn:hover { background: var(--bs-subtle); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-primary { background: var(--bs-primary); border-color: #047857; color: #fff; }
+.btn-primary:hover { background: #047857; }
+.btn-warning { background: var(--bs-warning); border-color: #9A5B13; color: #fff; }
+.btn-warning:hover { background: #9A5B13; }
+
+/* MASTER DETAIL */
+.split-view { display: flex; gap: 18px; align-items: flex-start; }
+.split-main { flex: 1; min-width: 0; }
+.split-side { width: 450px; flex-shrink: 0; background: var(--bs-surface); border: 1px solid var(--bs-border-strong); border-radius: 12px; position: sticky; top: 110px; max-height: calc(100vh - 130px); display: flex; flex-direction: column; overflow: hidden; }
+.side-head { background: var(--bs-header); color: #fff; padding: 16px 18px; }
+.side-tabs { display: flex; background: var(--bs-elevated); border-bottom: 1px solid var(--bs-border); padding: 0 12px; }
+.side-tab { padding: 10px 12px; font-size: 12px; font-weight: 700; color: var(--bs-secondary); border: none; background: transparent; border-bottom: 2px solid transparent; cursor: pointer; }
+.side-tab.active { color: var(--bs-primary); border-bottom-color: var(--bs-primary); }
+.side-body { padding: 16px 18px; overflow-y: auto; flex: 1; }
+
+.stepper { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-bottom: 14px; }
+.step { padding: 6px 4px; border-radius: 5px; background: var(--bs-subtle); font-size: 10px; font-weight: 700; text-align: center; color: var(--bs-muted); }
+.step.done { background: var(--bs-primary-tint); color: var(--bs-primary); }
+.step.curr { background: var(--bs-primary); color: #fff; }
+
+.timeline { border-left: 2px solid var(--bs-border-strong); margin-left: 6px; padding-left: 12px; }
+.tl-node { position: relative; margin-bottom: 12px; font-size: 12px; }
+.tl-node::before { content: ''; position: absolute; left: -17px; top: 4px; width: 8px; height: 8px; border-radius: 50%; background: var(--bs-primary); }
+.tl-node.aud::before { background: var(--bs-warning); }
+
+/* MODAL */
+#modal-overlay { position: fixed; inset: 0; background: rgba(7,17,20,0.72); z-index: 100; display: none; align-items: center; justify-content: center; padding: 18px; }
+#modal-overlay.open { display: flex; }
+.modal-box { background: var(--bs-surface); border: 1px solid var(--bs-border-strong); border-radius: 14px; width: 820px; max-width: 100%; max-height: calc(100vh - 36px); overflow-y: auto; padding: 22px; }
+.modal-box.sm { width: 500px; }
+.fld { display: block; margin-bottom: 10px; }
+.fld > span { display: block; font-size: 10.5px; font-weight: 700; text-transform: uppercase; color: var(--bs-secondary); margin-bottom: 3px; }
+.fld input, .fld select, .fld textarea { width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--bs-border-strong); background: var(--bs-elevated); }
+.row-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.err-text { color: var(--bs-danger); font-size: 12px; font-weight: 700; min-height: 18px; margin-top: 4px; }
+
+#toast { position: fixed; bottom: 20px; right: 20px; z-index: 150; background: var(--bs-header); color: #fff; border-left: 4px solid var(--bs-primary); padding: 10px 16px; border-radius: 8px; font-weight: 600; font-size: 12.5px; display: none; }
+@media (max-width: 1180px) { .kpi-grid-6 { grid-template-columns: repeat(2, 1fr); } .grid-2, .grid-equal { grid-template-columns: 1fr; } .split-view { flex-direction: column; } .split-side { width: 100%; position: static; max-height: none; } }
+@media (max-width: 680px) { .kpi-grid-6, .row-3, .row-2 { grid-template-columns: 1fr; } }
+</style>
+<link rel="stylesheet" href="proyecta-mvp-ux.css">
+</head>
+<body>
+<a class="skip-link" href="#workspace">Saltar al contenido principal</a>
+
+<!-- MODAL DE ACCESO POR ROL -->
+<div id="login-modal">
+  <div class="login-box">
+    <div class="login-left">
+      <div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
+          <div class="brand-logo">P</div>
+          <div>
+            <div style="font-weight:800;font-size:18px">PROYECTA · MVP</div>
+            <div style="font-size:11px;color:#98B3B0">Control de Oportunidades, Demanda y Forecast · CLP</div>
+          </div>
+        </div>
+        <h2 style="font-size:22px;line-height:1.25;margin-bottom:12px">Gestión centralizada de capacidad e ingresos proyectados.</h2>
+        <p style="font-size:12.5px;color:#B0C7C4;line-height:1.5">Motor único de cálculo de Base Mensual, MAB y Forecast prorrateado con control de estados, baja lógica sin borrado físico y trazabilidad completa por campo.</p>
+      </div>
+      <div style="font-size:11px;color:#98B3B0;border-top:1px solid rgba(255,255,255,0.12);padding-top:12px">
+        Entorno de demostración interactivo · Datos sintéticos en CLP ($)
+      </div>
+    </div>
+    <div class="login-right">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--bs-primary)">Control de Acceso por Perfil</div>
+      <h2 style="font-size:18px">Explora la demo con un rol</h2>
+      <p class="demo-help">Los cambios duran hasta recargar esta página. Elige un perfil para conocer sus acciones.</p>
+      <button class="btn" onclick="document.getElementById('login-modal').classList.remove('active')">Volver a la demo</button>
+      <button class="role-btn" onclick="switchRole('Operaciones')">
+        <div><b>Operaciones (USR-OP-01 · M. Soto)</b><div style="font-size:11.5px;color:var(--bs-secondary)">Visión global, ajuste de confiabilidad con motivo y parámetros de vigencia</div></div>
+        <span class="mono" style="color:var(--bs-primary)">Entrar →</span>
+      </button>
+      <button class="role-btn" onclick="switchRole('Líder')">
+        <div><b>Líder Comercial / Técnico (USR-LD-01 · J. Rivas)</b><div style="font-size:11.5px;color:var(--bs-secondary)">Registra y actualiza su cartera, perfiles, tarifas, probabilidad y bitácora</div></div>
+        <span class="mono" style="color:var(--bs-primary)">Entrar →</span>
+      </button>
+      <button class="role-btn" onclick="switchRole('Ejecutivo')">
+        <div><b>Capa Ejecutiva (USR-EJ-01 · Comité Ejecutivo)</b><div style="font-size:11.5px;color:var(--bs-secondary)">Consulta ejecutiva de KPIs, Forecast 3/6/12M, capacidad y detalle en lectura</div></div>
+        <span class="mono" style="color:var(--bs-primary)">Entrar →</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- CABECERA PRINCIPAL SIMPLIFICADA (SIN DUPLICAR KPIS DEL DASHBOARD) -->
+<header class="app-header">
+  <div class="header-top">
+    <div class="brand">
+      <div class="brand-logo">P</div>
+      <div>
+        <div style="font-weight:800;font-size:16px">PROYECTA <span class="p-tag">MVP Operacional</span></div>
+        <div style="font-size:11px;color:#98B3B0" id="header-scope-subtitle">Moneda única: CLP ($)</div>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span class="mono" style="font-size:11.5px;color:#98B3B0;background:rgba(255,255,255,0.06);padding:5px 10px;border-radius:6px" id="header-param-tag"></span>
+      <select class="ctrl-select" id="role-switcher" onchange="switchRole(this.value)">
+        <option value="Operaciones">Rol: Operaciones (M. Soto)</option>
+        <option value="Líder">Rol: Líder (J. Rivas)</option>
+        <option value="Ejecutivo">Rol: Capa Ejecutiva</option>
+      </select>
+      <button class="ctrl-select" onclick="toggleTheme()" id="theme-btn">☾ Modo Oscuro</button>
+      <button class="ctrl-select" onclick="document.getElementById('login-modal').classList.add('active')">Cambiar usuario</button>
+    </div>
+  </div>
+
+  <div class="header-nav">
+    <nav class="nav-list" id="nav-tabs" aria-label="Navegación principal"></nav>
+    <div style="display:flex;align-items:center;gap:10px">
+      <button class="btn btn-primary" id="btn-new-record" style="padding:5px 12px" onclick="openRecordModal()">+ Nuevo Registro</button>
+    </div>
+  </div>
+</header>
+
+<!-- BARRA DE PERSPECTIVAS Y FILTROS TRANSVERSALES -->
+<section class="subbar">
+  <div class="sub-pills" id="sub-pills-container"></div>
+  <div class="filter-group">
+    <label class="filter-field search-field" for="global-search-input"><span>Buscar en la cartera</span>
+    <input id="global-search-input" class="f-ctrl" type="search" placeholder="Código, cliente, proyecto o tecnología" oninput="onSearchInput(this.value)"></label>
+    <label class="filter-field" for="filter-sector"><span>Sector</span>
+    <select id="filter-sector" class="f-ctrl" onchange="S.filters.sector=this.value;refreshWorkspace()">
+      <option value="ALL">Sector: Todos</option>
+      <option value="Banca">Banca</option>
+      <option value="Utilities">Utilities</option>
+      <option value="Telecom">Telecom</option>
+      <option value="RRNN">RRNN</option>
+      <option value="Industria">Industria</option>
+    </select></label>
+    <label class="filter-field" for="filter-manager"><span>Líder responsable</span>
+    <select id="filter-manager" class="f-ctrl" onchange="S.filters.manager=this.value;refreshWorkspace()">
+      <option value="ALL">Líder: Todos</option>
+      <option value="J. Rivas">J. Rivas</option>
+      <option value="M. Soto">M. Soto</option>
+      <option value="L. Paredes">L. Paredes</option>
+      <option value="R. Pino">R. Pino</option>
+    </select></label>
+    <button class="btn" id="btn-clear-filters" style="padding:5px 10px;display:none" onclick="resetFilters()">✕ Limpiar filtros</button>
+  </div>
+</section>
+
+<!-- CONTENEDOR CENTRAL -->
+<main class="workspace" id="workspace" tabindex="-1" aria-label="Área de trabajo"></main>
+<p class="sr-only" id="workspace-status" role="status" aria-atomic="true"></p>
+
+<!-- MODAL -->
+<div id="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box" id="modal-box"></div>
+</div>
+
+<div id="toast" role="status" aria-atomic="true"></div>
+
+<script>
+/* ============================================================================
+   1. CATÁLOGOS OFICIALES, ESTADOS Y REGLAS DE TRANSICIÓN
+   ============================================================================ */
+const STATES = [
+  { id: 0, name: 'Oportunidad', group: 'Oportunidad activa', min: 0, max: 40, cls: 'st-0', isClosed: false, autoFlujo: 'En espera de definición', autoStaffing: 'No' },
+  { id: 1, name: 'Seguimiento', group: 'Oportunidad activa', min: 30, max: 80, cls: 'st-1', isClosed: false, autoFlujo: 'Propuesta en curso', autoStaffing: 'No' },
+  { id: 2, name: 'Adjudicada', group: 'Demanda por confirmar', min: 80, max: 95, cls: 'st-2', isClosed: false, autoFlujo: 'Ok buscando y validando perfiles', autoStaffing: 'Sí' },
+  { id: 3, name: 'Perfiles seleccionados', group: 'Demanda confirmada', min: 100, max: 100, cls: 'st-3', isClosed: false, autoFlujo: 'Perfiles confirmados', autoStaffing: 'Sí' },
+  { id: 4, name: 'Perdida', group: 'Cerrada', min: 0, max: 0, cls: 'st-4', isClosed: true, autoFlujo: 'Cerrado / Sin flujo activo', autoStaffing: 'No' },
+  { id: 5, name: 'Desestimada', group: 'Cerrada', min: 0, max: 0, cls: 'st-5', isClosed: true, autoFlujo: 'Cerrado / Sin flujo activo', autoStaffing: 'No' },
+  { id: 6, name: 'Cancelada', group: 'Cerrada', min: 100, max: 100, cls: 'st-6', isClosed: true, autoFlujo: 'Cerrado / Sin flujo activo', autoStaffing: 'No' }
+];
+
+const ALLOWED_TRANSITIONS = {
+  0: [1, 4, 5],
+  1: [0, 2, 4, 5],
+  2: [1, 3, 5, 6],
+  3: [2, 6],
+  4: [],
+  5: [],
+  6: []
+};
+
+const MANAGERS_CATALOG = ['J. Rivas', 'M. Soto', 'L. Paredes', 'R. Pino'];
+const SECTORS_CATALOG = ['Banca', 'Utilities', 'Telecom', 'RRNN', 'Industria', 'Seguros', 'Salud'];
+
+const MONTHS_12 = [
+  { key: '2026-11', lbl: 'nov 26', start: '2026-11-01', end: '2026-11-30', days: 30 },
+  { key: '2026-12', lbl: 'dic 26', start: '2026-12-01', end: '2026-12-31', days: 31 },
+  { key: '2027-01', lbl: 'ene 27', start: '2027-01-01', end: '2027-01-31', days: 31 },
+  { key: '2027-02', lbl: 'feb 27', start: '2027-02-01', end: '2027-02-28', days: 28 },
+  { key: '2027-03', lbl: 'mar 27', start: '2027-03-01', end: '2027-03-31', days: 31 },
+  { key: '2027-04', lbl: 'abr 27', start: '2027-04-01', end: '2027-04-30', days: 30 },
+  { key: '2027-05', lbl: 'may 27', start: '2027-05-01', end: '2027-05-31', days: 31 },
+  { key: '2027-06', lbl: 'jun 27', start: '2027-06-01', end: '2027-06-30', days: 30 },
+  { key: '2027-07', lbl: 'jul 27', start: '2027-07-01', end: '2027-07-31', days: 31 },
+  { key: '2027-08', lbl: 'ago 27', start: '2027-08-01', end: '2027-08-31', days: 31 },
+  { key: '2027-09', lbl: 'sep 27', start: '2027-09-01', end: '2027-09-30', days: 30 },
+  { key: '2027-10', lbl: 'oct 27', start: '2027-10-01', end: '2027-10-31', days: 31 }
+];
+
+/* ============================================================================
+   2. ESTADO CENTRAL DE LA APLICACIÓN
+   ============================================================================ */
+const S = {
+  todayISO: '2026-10-25',
+  refMonthIndex: 0,
+  forecastHorizon: 3,
+  role: 'Operaciones',
+  userId: 'USR-OP-01',
+  userName: 'M. Soto',
+  module: 'dash',      // 'dash' | 'pipe' | 'audit' | 'params'
+  dashTab: 'exec',     // 'exec' | 'cap'
+  selectedId: 'OPD-0163',
+  sideTab: 'res',      // 'res' | 'hc' | 'log'
+  nextSeq: 175,
+  defaultConf: 90,
+  hoursSchedule: [
+    { eff: '2026-01-01', hours: 180 }
+  ],
+  filters: { q: '', stateFilter: 'ACTIVE', sector: 'ALL', manager: 'ALL' },
+  records: [
+    {
+      id: 'OPD-0142', idMana: 'EXT-401', created: '2026-09-14',
+      name: 'Célula QA Automation Core', client: 'Cliente Alfa', sector: 'Banca',
+      studio: 'Sí', isDirectDemand: true, directReason: 'Ampliación de célula QA vigente',
+      manager: 'M. Soto', tech: 'Java / Selenium / React', modalidad: 'NTT',
+      enStaffing: 'Sí', flujo: 'Perfiles confirmados', state: 3, prob: 100, conf: 85,
+      ing: '2026-11-01', fin: '2027-10-31', cancelDate: null, closedReason: '', updatedAt: '2026-10-23',
+      profiles: [
+        { role: 'QA Automation', hc: 4, ded: 100, from: '2026-11-01', to: '2027-10-31', rates: [{ rate: 25000, eff: '2026-11-01' }] }
+      ],
+      logs: [
+        { t: '2026-10-23 11:20', u: 'M. Soto', type: 'Seguimiento', txt: 'Perfiles aceptados por el cliente para inicio el 01/11.', nextAction: 'Confirmar onboarding técnico', commitDate: '2026-10-30' }
+      ]
+    },
+    {
+      id: 'OPD-0151', idMana: 'EXT-409', created: '2026-09-28',
+      name: 'Squad Data Engineering & Cloud', client: 'Cliente Beta', sector: 'Utilities',
+      studio: 'Sí', isDirectDemand: false, directReason: '',
+      manager: 'L. Paredes', tech: 'Data Engineer - GCP / Looker', modalidad: 'NTT',
+      enStaffing: 'Sí', flujo: 'Ok buscando y validando perfiles', state: 2, prob: 90, conf: 80,
+      ing: '2026-11-01', fin: '2027-10-31', cancelDate: null, closedReason: '', updatedAt: '2026-10-24',
+      profiles: [
+        { role: 'Data Engineer Sr', hc: 3, ded: 100, from: '2026-11-01', to: '2027-10-31', rates: [{ rate: 28000, eff: '2026-11-01' }] },
+        { role: 'Data Analyst', hc: 1, ded: 100, from: '2027-01-01', to: '2027-10-31', rates: [{ rate: 22000, eff: '2027-01-01' }] }
+      ],
+      logs: [
+        { t: '2026-10-24 17:05', u: 'L. Paredes', type: 'Seguimiento', txt: 'Ternas en entrevista técnica final con gerencia del cliente.', nextAction: 'Validar acta de selección', commitDate: '2026-10-29' }
+      ]
+    },
+    {
+      id: 'OPD-0158', idMana: 'EXT-415', created: '2026-10-01',
+      name: 'Mesa de Soporte N2 Omnicanal', client: 'Cliente Gamma', sector: 'Telecom',
+      studio: 'No', isDirectDemand: true, directReason: 'Continuidad operacional adjudicada',
+      manager: 'R. Pino', tech: 'Soporte N2 / ITIL', modalidad: 'Subcontratación',
+      enStaffing: 'Sí', flujo: 'Ok buscando y validando perfiles', state: 2, prob: 90, conf: 75,
+      ing: '2026-11-01', fin: '2027-06-30', cancelDate: null, closedReason: '', updatedAt: '2026-10-20',
+      profiles: [
+        { role: 'Soporte N2', hc: 6, ded: 100, from: '2026-11-01', to: '2027-06-30', rates: [{ rate: 18000, eff: '2026-11-01' }] }
+      ],
+      logs: [
+        { t: '2026-10-20 11:12', u: 'R. Pino', type: 'Seguimiento', txt: 'El cliente validó a los 6 perfiles presentados tras revisar SLA.', nextAction: 'Subir carta de aceptación', commitDate: '2026-10-28' }
+      ]
+    },
+    {
+      id: 'OPD-0163', idMana: 'EXT-422', created: '2026-09-16',
+      name: 'Migración Core Java & Microservicios', client: 'Cliente Delta', sector: 'Banca',
+      studio: 'Sí', isDirectDemand: false, directReason: '',
+      manager: 'J. Rivas', tech: 'Java / Spring / Angular', modalidad: 'NTT',
+      enStaffing: 'No', flujo: 'Propuesta en curso', state: 1, prob: 60, conf: 80,
+      ing: '2026-11-01', fin: '2027-06-30', cancelDate: null, closedReason: '', updatedAt: '2026-10-22',
+      profiles: [
+        { role: 'Desarrollador Java Sr', hc: 3, ded: 100, from: '2026-11-01', to: '2027-06-30', rates: [{ rate: 30000, eff: '2026-11-01' }] },
+        { role: 'QA Automation', hc: 2, ded: 100, from: '2026-11-01', to: '2027-06-30', rates: [{ rate: 26000, eff: '2026-11-01' }] }
+      ],
+      logs: [
+        { t: '2026-10-22 16:40', u: 'J. Rivas', type: 'Seguimiento', txt: 'El cliente pidió sumar un desarrollador Java Sr; competimos con dos proveedores.', nextAction: 'Enviar propuesta técnica v2', commitDate: '2026-10-29' },
+        { t: '2026-09-30 10:05', u: 'M. Soto', type: 'Decisión', txt: 'Se ajusta confiabilidad a 80%: presupuesto anual del cliente en revisión.', nextAction: 'Confirmar hito de compras', commitDate: '2026-10-26' }
+      ]
+    },
+    {
+      id: 'OPD-0170', idMana: 'EXT-430', created: '2026-09-10',
+      name: 'Portal de Autoatención & Analítica', client: 'Cliente Épsilon', sector: 'RRNN',
+      studio: 'No Aplica', isDirectDemand: false, directReason: '',
+      manager: 'J. Rivas', tech: 'Azure Data & React', modalidad: 'NTT',
+      enStaffing: 'No', flujo: 'En espera de definición', state: 0, prob: 30, conf: 70,
+      ing: '2027-02-01', fin: '2027-07-31', cancelDate: null, closedReason: '', updatedAt: '2026-10-01',
+      profiles: [
+        { role: 'Desarrollador Cloud / Azure', hc: 2, ded: 100, from: '2027-02-01', to: '2027-07-31', rates: [{ rate: 25000, eff: '2027-02-01' }] }
+      ],
+      logs: [
+        { t: '2026-10-01 09:30', u: 'J. Rivas', type: 'Seguimiento', txt: 'El cliente postergó la revisión presupuestaria para el primer trimestre.', nextAction: '', commitDate: '' }
+      ]
+    },
+    {
+      id: 'OPD-0174', idMana: '', created: '2026-10-02',
+      name: 'Plataforma DevOps & Continuidad Cloud', client: 'Cliente Zeta', sector: 'Industria',
+      studio: 'Sí', isDirectDemand: true, directReason: 'Renovación directa de servicio crítico',
+      manager: 'L. Paredes', tech: 'DevOps / Kubernetes / React', modalidad: 'Subcontratación',
+      enStaffing: 'Sí', flujo: 'Perfiles confirmados', state: 3, prob: 100, conf: 90,
+      ing: '2026-11-01', fin: '2027-10-31', cancelDate: null, closedReason: '', updatedAt: '2026-10-21',
+      profiles: [
+        { role: 'DevOps Specialist', hc: 2, ded: 100, from: '2026-11-01', to: '2027-10-31', rates: [{ rate: 30000, eff: '2026-11-01' }] },
+        { role: 'Arquitecto Cloud', hc: 2, ded: 100, from: '2026-11-01', to: '2026-12-31', rates: [{ rate: 34000, eff: '2026-11-01' }] }
+      ],
+      logs: [
+        { t: '2026-10-21 15:00', u: 'L. Paredes', type: 'Seguimiento', txt: '4 perfiles aprobados para inicio en noviembre; Arquitectos hasta diciembre.', nextAction: 'Firma anexo contractual', commitDate: '2026-10-28' }
+      ]
+    }
+  ],
+  audit: [
+    { t: '2026-10-22 16:38', u: 'USR-LD-01 (J. Rivas)', id: 'OPD-0163', field: 'HC Desarrollador Java Sr', oldV: '2 personas', newV: '3 personas', eff: '2026-11-01', reason: 'Solicitud cliente en comité técnico', impact: 'MAB $9.792.000 → $12.268.800 (+$2.476.800/mes)', origin: 'Pantalla' },
+    { t: '2026-09-30 10:05', u: 'USR-OP-01 (M. Soto)', id: 'OPD-0163', field: 'Confiabilidad', oldV: '90 %', newV: '80 %', eff: '2026-09-30', reason: 'Presupuesto del cliente aún no se aprueba en directorio', impact: 'MAB $11.016.000 → $9.792.000 (-$1.224.000/mes)', origin: 'Pantalla' },
+    { t: '2026-09-23 09:12', u: 'USR-LD-01 (J. Rivas)', id: 'OPD-0163', field: 'Estado / Probabilidad', oldV: 'Oportunidad (40 %)', newV: 'Seguimiento (60 %)', eff: '2026-09-23', reason: 'Propuesta técnica entregada en plazo', impact: 'MAB $7.344.000 → $11.016.000 (+$3.672.000/mes)', origin: 'Pantalla' }
+  ]
+};
+
+/* ============================================================================
+   3. MOTOR DE CÁLCULO FINANCIERO Y CAPACIDAD (REGLAS DE NEGOCIO INTACTAS)
+   ============================================================================ */
+function esc(str) {
+  return String(str ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
+function fmtCLP(val, compact = false) {
+  const n = Math.round(Number(val) || 0);
+  const sign = n < 0 ? '−$' : '$';
+  const abs = Math.abs(n);
+  if (compact) {
+    if (abs >= 1e6) return sign + (abs / 1e6).toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' M';
+    if (abs >= 1e3) return sign + Math.round(abs / 1e3).toLocaleString('es-CL') + ' K';
+  }
+  return sign + abs.toLocaleString('es-CL');
+}
+
+function getHoursForMonth(mObj, schedule = S.hoursSchedule) {
+  let activeHours = 180;
+  const sorted = [...schedule].sort((a, b) => a.eff.localeCompare(b.eff));
+  for (const item of sorted) {
+    if (item.eff <= mObj.end) activeHours = Number(item.hours);
+  }
+  return activeHours;
+}
+
+function getProfileRateForMonth(profile, mObj) {
+  if (!profile.rates || !profile.rates.length) return Number(profile.rate || 0);
+  let rVal = Number(profile.rates[0].rate);
+  const sorted = [...profile.rates].sort((a, b) => a.eff.localeCompare(b.eff));
+  for (const r of sorted) {
+    if (r.eff <= mObj.end) rVal = Number(r.rate);
+  }
+  return rVal;
+}
+
+function calcProfileActiveFractionInMonth(rec, profile, mObj) {
+  if (rec.state === 4 || rec.state === 5) return 0;
+  const mStart = new Date(mObj.start + 'T00:00:00');
+  const mEnd = new Date(mObj.end + 'T00:00:00');
+
+  const pStartStr = profile.from || rec.ing;
+  const pEndStr = profile.to || rec.fin;
+  const effStart = new Date((pStartStr > rec.ing ? pStartStr : rec.ing) + 'T00:00:00');
+  let effEnd = new Date((pEndStr < rec.fin ? pEndStr : rec.fin) + 'T00:00:00');
+
+  if (rec.state === 6 && rec.cancelDate) {
+    const cancelDt = new Date(rec.cancelDate + 'T00:00:00');
+    const lastActive = new Date(cancelDt.getTime() - 86400000);
+    if (lastActive < effEnd) effEnd = lastActive;
+  }
+
+  const s = effStart > mStart ? effStart : mStart;
+  const e = effEnd < mEnd ? effEnd : mEnd;
+  if (e < s) return 0;
+  const activeDays = Math.round((e - s) / 86400000) + 1;
+  return Math.min(1, Math.max(0, activeDays / mObj.days));
+}
+
+function calcRecordMonthBaseCLP(rec, mObj, schedule = S.hoursSchedule) {
+  if (rec.state === 4 || rec.state === 5) return 0;
+  const hours = getHoursForMonth(mObj, schedule);
+  return rec.profiles.reduce((sum, p) => {
+    const frac = calcProfileActiveFractionInMonth(rec, p, mObj);
+    if (frac <= 0) return sum;
+    const rate = getProfileRateForMonth(p, mObj);
+    const ded = Number(p.ded ?? 100) / 100;
+    return sum + (Number(p.hc) * ded * rate * hours * frac);
+  }, 0);
+}
+
+function calcRecordMonthMABCLP(rec, mObj, schedule = S.hoursSchedule) {
+  const base = calcRecordMonthBaseCLP(rec, mObj, schedule);
+  const prob = rec.state === 3 ? 100 : Number(rec.prob);
+  return base * (prob / 100) * (Number(rec.conf) / 100);
+}
+
+function calcRecordHorizonForecastCLP(rec, numMonths = S.forecastHorizon, schedule = S.hoursSchedule) {
+  return MONTHS_12.slice(0, numMonths).reduce((acc, mObj) => acc + calcRecordMonthMABCLP(rec, mObj, schedule), 0);
+}
+
+function calcRecordActiveHCInMonth(rec, mObj) {
+  if (rec.state === 4 || rec.state === 5) return 0;
+  if (rec.prob <= 0) return 0;
+  return rec.profiles.reduce((sum, p) => {
+    const frac = calcProfileActiveFractionInMonth(rec, p, mObj);
+    return frac > 0 ? sum + Number(p.hc) : sum;
+  }, 0);
+}
+
+function calcRecordTotalConfiguredHC(rec) {
+  return rec.profiles.reduce((s, p) => s + Number(p.hc || 0), 0);
+}
+
+function calcRecordMonthlyMovements(rec, mIdx) {
+  const currM = MONTHS_12[mIdx];
+  const prevM = mIdx > 0 ? MONTHS_12[mIdx - 1] : { start: '2026-10-01', end: '2026-10-31', days: 31 };
+  let altas = 0, bajas = 0, cierre = 0;
+  if (rec.state === 4 || rec.state === 5) return { altas: 0, bajas: 0, cierre: 0 };
+
+  for (const p of rec.profiles) {
+    const wasActive = calcProfileActiveFractionInMonth(rec, p, prevM) > 0;
+    const isActive = calcProfileActiveFractionInMonth(rec, p, currM) > 0;
+    if (!wasActive && isActive) altas += Number(p.hc);
+    if (wasActive && !isActive) bajas += Number(p.hc);
+    if (isActive) cierre += Number(p.hc);
+  }
+  return { altas, bajas, cierre };
+}
+
+function deriveTipoFromState(rec) {
+  if (rec.state >= 2 && rec.state <= 3) return rec.isDirectDemand ? 'Demanda directa' : 'Demanda';
+  if (rec.state >= 4) return 'Cerrada';
+  return 'Oportunidad';
+}
+
+function daysBetweenISO(d1, d2) {
+  return Math.max(0, Math.round((new Date(d2 + 'T00:00:00') - new Date(d1 + 'T00:00:00')) / 86400000));
+}
+
+function getQualityDiagnosis(rec) {
+  if (STATES[rec.state].isClosed) return { level: 'ok', color: 'var(--bs-muted)', text: `Cerrada (${STATES[rec.state].name})` };
+  const daysStale = daysBetweenISO(rec.updatedAt, S.todayISO);
+  if (daysStale > 14) return { level: 'err', color: 'var(--bs-danger)', text: `${daysStale} días sin actualizar (>14d)` };
+  const daysToIng = daysBetweenISO(S.todayISO, rec.ing);
+  if (rec.state < 3 && daysToIng <= 30) return { level: 'warn', color: 'var(--bs-warning)', text: `Ingreso en ${daysToIng}d sin perfiles al 100%` };
+  const lastLog = rec.logs[0];
+  if (rec.state < 2 && (!lastLog || !lastLog.nextAction || !lastLog.commitDate)) {
+    return { level: 'warn', color: 'var(--bs-warning)', text: 'Sin próxima acción / fecha compromiso' };
+  }
+  if (lastLog && lastLog.commitDate && lastLog.commitDate < S.todayISO) {
+    return { level: 'warn', color: 'var(--bs-warning)', text: `Compromiso vencido (${lastLog.commitDate})` };
+  }
+  return { level: 'ok', color: 'var(--bs-primary)', text: 'Al día y completo' };
+}
+
+/* ============================================================================
+   4. PERMISOS Y FILTRADO COHERENTE ENTRE DASHBOARD Y PIPELINE
+   ============================================================================ */
+function canEditRecord(rec) {
+  if (S.role === 'Ejecutivo') return false;
+  if (S.role === 'Operaciones') return true;
+  return rec.manager === S.userName;
+}
+
+function canEditField(rec, fieldName) {
+  if (!canEditRecord(rec)) return false;
+  if (fieldName === 'conf' || fieldName === 'hours' || fieldName === 'catalogs') {
+    return S.role === 'Operaciones';
+  }
+  return true;
+}
+
+// Filtro transversal de negocio (Rol, Sector, Líder, Búsqueda) - base coherente para Dashboards
+function getBaseFilteredRecords(includeClosed = false) {
+  return S.records.filter(r => {
+    if (S.role === 'Líder' && r.manager !== S.userName) return false;
+    if (!includeClosed && STATES[r.state].isClosed) return false;
+    if (S.filters.sector !== 'ALL' && r.sector !== S.filters.sector) return false;
+    if (S.filters.manager !== 'ALL' && r.manager !== S.filters.manager) return false;
+    if (S.filters.q) {
+      const hay = `${r.id} ${r.idMana} ${r.name} ${r.client} ${r.sector} ${r.manager} ${r.tech}`.toLowerCase();
+      if (!hay.includes(S.filters.q.toLowerCase())) return false;
+    }
+    return true;
+  });
+}
+
+// Filtro de tabla del Mantenedor (añade el filtro por píldora de estado seleccionada)
+function getPipelineRecords() {
+  const showClosed = S.filters.stateFilter === 'CLOSED';
+  return getBaseFilteredRecords(showClosed).filter(r => {
+    if (S.filters.stateFilter === 'ACTIVE' && STATES[r.state].isClosed) return false;
+    if (S.filters.stateFilter === 'OPP' && ![0, 1].includes(r.state)) return false;
+    if (S.filters.stateFilter === 'ADJ' && r.state !== 2) return false;
+    if (S.filters.stateFilter === 'CONF' && r.state !== 3) return false;
+    if (S.filters.stateFilter === 'CLOSED' && !STATES[r.state].isClosed) return false;
+    if (S.filters.stateFilter === 'ALERT' && getQualityDiagnosis(r).level === 'ok') return false;
+    return true;
+  });
+}
+
+function resetFilters() {
+  S.filters.q = '';
+  S.filters.sector = 'ALL';
+  S.filters.manager = S.role === 'Líder' ? S.userName : 'ALL';
+  S.filters.stateFilter = 'ACTIVE';
+  document.getElementById('global-search-input').value = '';
+  document.getElementById('filter-sector').value = 'ALL';
+  document.getElementById('filter-manager').value = S.filters.manager;
+  refreshWorkspace();
+}
+
+/* ============================================================================
+   5. NAVEGACIÓN Y CABECERA REACTIVA
+   ============================================================================ */
+function onSearchInput(val) {
+  S.filters.q = val;
+  refreshWorkspace();
+}
+
+function renderChrome() {
+  const activeRecs = getBaseFilteredRecords(false);
+  const refM = MONTHS_12[S.refMonthIndex];
+  const currHours = getHoursForMonth(refM);
+
+  document.getElementById('header-scope-subtitle').textContent =
+    S.role === 'Líder'
+      ? `Vista de Cartera Propia (${S.userName}) · Moneda única: CLP ($)`
+      : S.role === 'Ejecutivo'
+        ? `Vista Comité Ejecutivo (Solo lectura) · Moneda única: CLP ($)`
+        : `Control Global de Operaciones · Moneda única: CLP ($)`;
+
+  document.getElementById('header-param-tag').textContent =
+    `Mes ref: ${refM.lbl} (${currHours}h) · Conf. base: ${S.defaultConf}%`;
+
+  document.getElementById('btn-new-record').style.display = S.role === 'Ejecutivo' ? 'none' : 'inline-flex';
+  document.getElementById('role-switcher').value = S.role;
+
+  // Bloquear selector de Líder cuando el rol es Líder para evitar filtros contradictorios
+  const mgrSelect = document.getElementById('filter-manager');
+  if (S.role === 'Líder') {
+    S.filters.manager = S.userName;
+    mgrSelect.value = S.userName;
+    mgrSelect.disabled = true;
+  } else {
+    mgrSelect.disabled = false;
+  }
+
+  const hasActiveFilter = S.filters.q !== '' || S.filters.sector !== 'ALL' || (S.role !== 'Líder' && S.filters.manager !== 'ALL') || (S.module === 'pipe' && S.filters.stateFilter !== 'ACTIVE');
+  document.getElementById('btn-clear-filters').style.display = hasActiveFilter ? 'inline-flex' : 'none';
+
+  const navItems = [
+    { id: 'dash', lbl: 'Dashboard & Capacidad', tag: `${activeRecs.length} act.` },
+    { id: 'pipe', lbl: 'Oportunidades y Demandas', tag: 'Pipeline' },
+    { id: 'audit', lbl: 'Auditoría y Trazabilidad', tag: `${S.audit.length} ev.` }
+  ];
+  if (S.role === 'Operaciones') {
+    navItems.push({ id: 'params', lbl: 'Parámetros de Vigencia', tag: 'Config' });
+  }
+  document.getElementById('nav-tabs').innerHTML = navItems.map(n => `
+    <button class="nav-link ${S.module === n.id ? 'active' : ''}" onclick="S.module='${n.id}';refreshWorkspace()">
+      <span>${n.lbl}</span><span class="p-tag">${n.tag}</span>
+    </button>
+  `).join('');
+
+  const subContainer = document.getElementById('sub-pills-container');
+  if (S.module === 'dash') {
+    const alertCount = activeRecs.filter(r => getQualityDiagnosis(r).level !== 'ok').length;
+    subContainer.innerHTML = `
+      <button class="sub-pill ${S.dashTab === 'exec' ? 'active' : ''}" onclick="S.dashTab='exec';refreshWorkspace()">① Resumen Financiero y Forecast</button>
+      <button class="sub-pill ${S.dashTab === 'cap' ? 'active' : ''}" onclick="S.dashTab='cap';refreshWorkspace()">② Capacidad HC y Alertas Operativas (${alertCount})</button>
+    `;
+  } else if (S.module === 'pipe') {
+    subContainer.innerHTML = `
+      <button class="sub-pill ${S.filters.stateFilter === 'ACTIVE' ? 'active' : ''}" onclick="S.filters.stateFilter='ACTIVE';refreshWorkspace()">Activos (${activeRecs.length})</button>
+      <button class="sub-pill ${S.filters.stateFilter === 'OPP' ? 'active' : ''}" onclick="S.filters.stateFilter='OPP';refreshWorkspace()">Oportunidades (0–80%)</button>
+      <button class="sub-pill ${S.filters.stateFilter === 'ADJ' ? 'active' : ''}" onclick="S.filters.stateFilter='ADJ';refreshWorkspace()">Adjudicadas (80–95%)</button>
+      <button class="sub-pill ${S.filters.stateFilter === 'CONF' ? 'active' : ''}" onclick="S.filters.stateFilter='CONF';refreshWorkspace()">Confirmadas (100%)</button>
+      <button class="sub-pill ${S.filters.stateFilter === 'ALERT' ? 'active' : ''}" onclick="S.filters.stateFilter='ALERT';refreshWorkspace()">Con Alerta</button>
+      <button class="sub-pill ${S.filters.stateFilter === 'CLOSED' ? 'active' : ''}" onclick="S.filters.stateFilter='CLOSED';refreshWorkspace()">Cerradas (Baja Lógica)</button>
+    `;
+  } else {
+    subContainer.innerHTML = `<span style="font-size:12px;font-weight:700;color:var(--bs-secondary);padding:4px 8px">Vista de control e historial inmutable</span>`;
+  }
+}
+
+function refreshWorkspace() {
+  const previous = document.activeElement;
+  const previousAction = previous && previous.getAttribute('onclick');
+  renderChrome();
+  const ws = document.getElementById('workspace');
+  if (S.module === 'dash') ws.innerHTML = renderDashboardModule();
+  else if (S.module === 'pipe') ws.innerHTML = renderPipelineModule();
+  else if (S.module === 'audit') ws.innerHTML = renderAuditModule();
+  else if (S.module === 'params') ws.innerHTML = renderParamsModule();
+  if (typeof enhanceWorkspace === 'function') {
+    enhanceWorkspace(previous, previousAction);
+  }
+}
+
+/* ============================================================================
+   6. MÓDULO DASHBOARD OPTIMIZADO (6 KPIS CONSOLIDADOS Y COHERENTES)
+   ============================================================================ */
+function renderDashboardModule() {
+  return S.dashTab === 'exec' ? renderExecDashboard() : renderCapacityAndAlertsDashboard();
+}
+
+function renderExecDashboard() {
+  const recs = getBaseFilteredRecords(false);
+  const refM = MONTHS_12[S.refMonthIndex];
+
+  const oppActivas = recs.filter(r => r.state === 0 || r.state === 1);
+  const demPorConfirmar = recs.filter(r => r.state === 2);
+  const demConfirmadas = recs.filter(r => r.state === 3);
+
+  const hcTotal = recs.reduce((s, r) => s + calcRecordActiveHCInMonth(r, refM), 0);
+  const hcConf = demConfirmadas.reduce((s, r) => s + calcRecordActiveHCInMonth(r, refM), 0);
+  const hcAdj = demPorConfirmar.reduce((s, r) => s + calcRecordActiveHCInMonth(r, refM), 0);
+  const hcOpp = oppActivas.reduce((s, r) => s + calcRecordActiveHCInMonth(r, refM), 0);
+
+  const potMes = recs.reduce((s, r) => s + calcRecordMonthBaseCLP(r, refM), 0);
+  const afterProbMes = recs.reduce((s, r) => s + calcRecordMonthBaseCLP(r, refM) * ((r.state === 3 ? 100 : r.prob) / 100), 0);
+  const mabMes = recs.reduce((s, r) => s + calcRecordMonthMABCLP(r, refM), 0);
+  const discountProb = potMes - afterProbMes;
+  const discountConf = afterProbMes - mabMes;
+
+  const forecastHorizonTotal = recs.reduce((s, r) => s + calcRecordHorizonForecastCLP(r, S.forecastHorizon), 0);
+
+  const avgProb = recs.length ? Math.round(recs.reduce((s, r) => s + (r.state === 3 ? 100 : r.prob), 0) / recs.length) : 0;
+  const avgConf = recs.length ? Math.round(recs.reduce((s, r) => s + r.conf, 0) / recs.length) : 0;
+  const alertCount = recs.filter(r => getQualityDiagnosis(r).level !== 'ok').length;
+
+  const totalConfiguredHC = recs.reduce((s, r) => s + calcRecordTotalConfiguredHC(r), 0);
+  const avgRateWeighted = totalConfiguredHC > 0
+    ? recs.reduce((s, r) => s + r.profiles.reduce((ps, p) => ps + p.hc * getProfileRateForMonth(p, refM), 0), 0) / totalConfiguredHC
+    : 0;
+
+  // 6 KPIs ejecutivos consolidados (sin duplicidades ni tarjetas irrelevantes)
+  const kpiCards = [
+    {
+      tag: 'Pipeline Activo',
+      lbl: 'Oportunidades y Demandas',
+      val: `${recs.length} casos`,
+      sub: `${oppActivas.length} Oport. · ${demPorConfirmar.length} Adjudicadas · ${demConfirmadas.length} Confirmadas`,
+      action: () => { S.filters.stateFilter = 'ACTIVE'; S.module = 'pipe'; refreshWorkspace(); }
+    },
+    {
+      tag: `Capacidad (${refM.lbl})`,
+      lbl: 'HC Proyectado (Sin ponderar)',
+      val: `${hcTotal} personas`,
+      sub: `${hcConf} confirmados · ${hcAdj} por confirmar · ${hcOpp} en oportunidad`,
+      action: () => { S.dashTab = 'cap'; refreshWorkspace(); }
+    },
+    {
+      tag: `Potencial (${refM.lbl})`,
+      lbl: 'Base Mensual Bruta',
+      val: fmtCLP(potMes, true),
+      sub: `Tarifa media ponderada: ${fmtCLP(avgRateWeighted)}/h (${getHoursForMonth(refM)}h/mes)`,
+      action: () => { S.filters.stateFilter = 'ACTIVE'; S.module = 'pipe'; refreshWorkspace(); }
+    },
+    {
+      tag: `Ponderado (${refM.lbl})`,
+      lbl: 'MAB mensual · Ingreso ponderado',
+      val: fmtCLP(mabMes, true),
+      sub: `Castigo Prob: −${fmtCLP(discountProb, true)} · Castigo Conf: −${fmtCLP(discountConf, true)}`,
+      action: () => { S.filters.stateFilter = 'ACTIVE'; S.module = 'pipe'; refreshWorkspace(); }
+    },
+    {
+      tag: `Proyección (${S.forecastHorizon}M)`,
+      lbl: `Forecast Acumulado (${S.forecastHorizon} Meses)`,
+      val: fmtCLP(forecastHorizonTotal, true),
+      sub: `Suma prorrateada según vigencias de ingreso, fin y horas`,
+      action: () => { S.filters.stateFilter = 'ACTIVE'; S.module = 'pipe'; refreshWorkspace(); }
+    },
+    {
+      tag: 'Certeza y Control',
+      lbl: 'Probabilidad / Confiabilidad / Alertas',
+      val: `${avgProb}% / ${avgConf}%`,
+      sub: alertCount > 0 ? `⚠ ${alertCount} registro(s) requieren seguimiento` : '✓ Todos los registros al día',
+      action: () => { S.filters.stateFilter = alertCount > 0 ? 'ALERT' : 'ACTIVE'; S.module = 'pipe'; refreshWorkspace(); }
+    }
+  ];
+
+  const horizonMonths = MONTHS_12.slice(0, S.forecastHorizon);
+  const monthSeries = horizonMonths.map((mObj, idx) => {
+    const demMAB = recs.filter(r => r.state >= 2).reduce((s, r) => s + calcRecordMonthMABCLP(r, mObj), 0);
+    const oppMAB = recs.filter(r => r.state < 2).reduce((s, r) => s + calcRecordMonthMABCLP(r, mObj), 0);
+    return { mObj, idx, demMAB, oppMAB, total: demMAB + oppMAB };
+  });
+  const maxMonthVal = Math.max(1, ...monthSeries.map(x => x.total));
+
+  const bySector = {};
+  for (const r of recs) {
+    if (!bySector[r.sector]) bySector[r.sector] = { count: 0, hc: 0, base: 0, mab: 0 };
+    bySector[r.sector].count += 1;
+    bySector[r.sector].hc += calcRecordActiveHCInMonth(r, refM);
+    bySector[r.sector].base += calcRecordMonthBaseCLP(r, refM);
+    bySector[r.sector].mab += calcRecordMonthMABCLP(r, refM);
+  }
+
+  window._kpiActions = kpiCards.map(k => k.action);
+
+  return `
+    <div class="card" style="padding:12px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+      <div>
+        <span style="font-weight:800">Tablero de Control de Ingresos y Demanda</span>
+        <span style="font-size:12px;color:var(--bs-muted);margin-left:8px">Haz clic en cualquier indicador o sector para inspeccionar los registros que lo componen</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <label style="font-size:12px;font-weight:700">Mes de análisis:
+          <select class="f-ctrl" onchange="S.refMonthIndex=Number(this.value);refreshWorkspace()">
+            ${MONTHS_12.map((m, idx) => `<option value="${idx}" ${S.refMonthIndex === idx ? 'selected' : ''}>${m.lbl}</option>`).join('')}
+          </select>
+        </label>
+        <div class="sub-pills">
+          ${[3, 6, 12].map(h => `<button class="sub-pill ${S.forecastHorizon === h ? 'active' : ''}" onclick="S.forecastHorizon=${h};refreshWorkspace()">Horizonte ${h}M</button>`).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div class="kpi-grid-6">
+      ${kpiCards.map((item, idx) => `
+        <button class="op-card" onclick="window._kpiActions[${idx}]()">
+          <span class="op-num">${item.tag}</span>
+          <div class="op-lbl">${item.lbl}</div>
+          <div class="op-val">${item.val}</div>
+          <div class="op-sub">${item.sub}</div>
+        </button>
+      `).join('')}
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Evolución Mensual del Forecast (${S.forecastHorizon} Meses · CLP)</div>
+            <div class="card-sub">Prorrateado por días activos y horas vigentes · Haz clic en una barra para fijar el mes de análisis</div>
+          </div>
+          <div style="font-size:11.5px;font-weight:700;display:flex;gap:12px">
+            <span><i class="dot" style="background:var(--bs-primary)"></i> Demandas (Estados 2 y 3)</span>
+            <span><i class="dot" style="background:var(--bs-warning)"></i> Oportunidades (Estados 0 y 1)</span>
+          </div>
+        </div>
+
+        <svg viewBox="0 0 720 220" width="100%">
+          ${[0, 0.25, 0.5, 0.75, 1].map(f => {
+            const y = 185 - f * 155;
+            const v = maxMonthVal * f;
+            return `<line x1="65" x2="705" y1="${y}" y2="${y}" stroke="var(--bs-border)"/><text x="58" y="${y + 4}" font-size="10" font-family="IBM Plex Mono" fill="var(--bs-muted)" text-anchor="end">${fmtCLP(v, true)}</text>`;
+          }).join('')}
+          ${monthSeries.map((ms, i) => {
+            const slotW = (640 / monthSeries.length);
+            const barW = Math.min(48, Math.max(24, slotW * 0.58));
+            const x = 68 + i * slotW + (slotW - barW) / 2;
+            const hDem = (ms.demMAB / maxMonthVal) * 155;
+            const hOpp = (ms.oppMAB / maxMonthVal) * 155;
+            const isSelected = ms.idx === S.refMonthIndex;
+            return `
+              <g style="cursor:pointer" onclick="S.refMonthIndex=${ms.idx};refreshWorkspace()">
+                <title>${ms.mObj.lbl}: Total ${fmtCLP(ms.total)} (Demandas: ${fmtCLP(ms.demMAB)} · Oportunidades: ${fmtCLP(ms.oppMAB)})</title>
+                ${isSelected ? `<rect x="${x - 4}" y="20" width="${barW + 8}" height="170" rx="5" fill="var(--bs-primary-tint)" stroke="var(--bs-primary)" stroke-dasharray="3,3"/>` : ''}
+                <rect x="${x}" y="${185 - hDem}" width="${barW}" height="${hDem}" rx="3" fill="var(--bs-primary)"/>
+                <rect x="${x}" y="${185 - hDem - hOpp}" width="${barW}" height="${hOpp}" rx="3" fill="var(--bs-warning)"/>
+                <text x="${x + barW / 2}" y="${Math.max(14, 179 - hDem - hOpp)}" font-size="9.5" font-family="IBM Plex Mono" font-weight="700" fill="var(--bs-text)" text-anchor="middle">${fmtCLP(ms.total, true)}</text>
+                <text x="${x + barW / 2}" y="204" font-size="10.5" font-weight="${isSelected ? '800' : '600'}" fill="${isSelected ? 'var(--bs-primary)' : 'var(--bs-secondary)'}" text-anchor="middle">${ms.mObj.lbl}</text>
+              </g>
+            `;
+          }).join('')}
+        </svg>
+        <details class="chart-data">
+          <summary>Ver cifras del gráfico en una tabla</summary>
+          <div class="table-wrap"><table class="tbl">
+            <caption>Forecast mensual en pesos chilenos</caption>
+            <thead><tr><th scope="col">Mes</th><th scope="col" class="num">Demandas</th><th scope="col" class="num">Oportunidades</th><th scope="col" class="num">Total</th></tr></thead>
+            <tbody>${monthSeries.map(ms => `<tr><th scope="row">${ms.mObj.lbl}</th><td class="num">${fmtCLP(ms.demMAB)}</td><td class="num">${fmtCLP(ms.oppMAB)}</td><td class="num">${fmtCLP(ms.total)}</td></tr>`).join('')}</tbody>
+          </table></div>
+        </details>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Distribución por Sector (${refM.lbl})</div>
+            <div class="card-sub">Clic en una fila para filtrar el pipeline por sector</div>
+          </div>
+        </div>
+        <table class="tbl">
+          <thead><tr><th>Sector</th><th class="num">Casos</th><th class="num">HC (${refM.lbl})</th><th class="num">Base Potencial</th><th class="num">MAB Ponderada</th></tr></thead>
+          <tbody>
+            ${Object.entries(bySector).map(([sec, d]) => `
+              <tr onclick="S.filters.sector='${sec}';document.getElementById('filter-sector').value='${sec}';S.module='pipe';refreshWorkspace()">
+                <td><b>${esc(sec)}</b></td>
+                <td class="num">${d.count}</td>
+                <td class="num">${d.hc}</td>
+                <td class="num">${fmtCLP(d.base, true)}</td>
+                <td class="num" style="color:var(--bs-primary)"><b>${fmtCLP(d.mab, true)}</b></td>
+              </tr>
+            `).join('') || `<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--bs-muted)">Sin registros activos para los filtros seleccionados</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderCapacityAndAlertsDashboard() {
+  const recs = getBaseFilteredRecords(false);
+  const m3 = MONTHS_12.slice(S.refMonthIndex, S.refMonthIndex + 3);
+  while (m3.length < 3) m3.push(MONTHS_12[MONTHS_12.length - 1]);
+
+  const byRole = {};
+  for (const r of recs) {
+    if (r.prob <= 0) continue;
+    for (const p of r.profiles) {
+      if (!byRole[p.role]) byRole[p.role] = { m: [0, 0, 0], conf: 0, adj: 0, opp: 0 };
+      m3.forEach((mObj, idx) => {
+        if (calcProfileActiveFractionInMonth(r, p, mObj) > 0) {
+          byRole[p.role].m[idx] += Number(p.hc);
+          if (idx === 0) {
+            if (r.state === 3) byRole[p.role].conf += Number(p.hc);
+            else if (r.state === 2) byRole[p.role].adj += Number(p.hc);
+            else byRole[p.role].opp += Number(p.hc);
+          }
+        }
+      });
+    }
+  }
+
+  return `
+    <div class="grid-equal">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Capacidad Requerida: HC por Perfil (Próximos 3 Meses)</div>
+            <div class="card-sub">Personas enteras sin ponderar según vigencia de cada perfil</div>
+          </div>
+          <span class="p-tag">Planificación Staffing</span>
+        </div>
+        <table class="tbl">
+          <thead><tr><th>Perfil Requerido</th><th class="num">${m3[0].lbl}</th><th class="num">${m3[1].lbl}</th><th class="num">${m3[2].lbl}</th><th>Certeza (${m3[0].lbl})</th></tr></thead>
+          <tbody>
+            ${Object.entries(byRole).map(([roleName, d]) => `
+              <tr>
+                <td><b>${esc(roleName)}</b></td>
+                <td class="num"><b>${d.m[0]}</b></td>
+                <td class="num"><b>${d.m[1]}</b></td>
+                <td class="num"><b>${d.m[2]}</b></td>
+                <td>${d.conf} conf · ${d.adj} por conf · ${d.opp} oport</td>
+              </tr>
+            `).join('') || `<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--bs-muted)">Sin requerimientos de HC activos</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Movimientos Mensuales de HC (Altas · Bajas · Cierre Activo)</div>
+            <div class="card-sub">Calculado automáticamente desde las fechas de inicio y término de los perfiles</div>
+          </div>
+        </div>
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th>Registro</th>
+              <th>Staffing</th>
+              <th class="num">${m3[0].lbl} (A/B/C)</th>
+              <th class="num">${m3[1].lbl} (A/B/C)</th>
+              <th class="num">${m3[2].lbl} (A/B/C)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${recs.map(r => {
+              const i0 = MONTHS_12.indexOf(m3[0]);
+              const mv0 = calcRecordMonthlyMovements(r, i0);
+              const mv1 = calcRecordMonthlyMovements(r, Math.min(11, i0 + 1));
+              const mv2 = calcRecordMonthlyMovements(r, Math.min(11, i0 + 2));
+              return `
+                <tr onclick="S.selectedId='${r.id}';S.module='pipe';refreshWorkspace()">
+                  <td><span class="code-tag">${r.id}</span> <b>${esc(r.client)}</b></td>
+                  <td><span class="badge ${r.enStaffing === 'Sí' ? 'st-3' : 'st-0'}">${r.enStaffing}</span></td>
+                  <td class="num">+${mv0.altas} / -${mv0.bajas} / <b>${mv0.cierre}</b></td>
+                  <td class="num">+${mv1.altas} / -${mv1.bajas} / <b>${mv1.cierre}</b></td>
+                  <td class="num">+${mv2.altas} / -${mv2.bajas} / <b>${mv2.cierre}</b></td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">Control de Higiene y Seguimiento del Pipeline</div>
+          <div class="card-sub">Verifica antigüedad de actualización (>14 días), proximidad de ingreso (≤30 días) y compromisos de bitácora</div>
+        </div>
+      </div>
+      <table class="tbl">
+        <thead><tr><th>Registro</th><th>Cliente / Proyecto</th><th>Líder</th><th>Ingreso Previsto</th><th>Última Actualización</th><th>Diagnóstico de Control</th></tr></thead>
+        <tbody>
+          ${recs.map(r => {
+            const q = getQualityDiagnosis(r);
+            return `
+              <tr onclick="S.selectedId='${r.id}';S.module='pipe';refreshWorkspace()">
+                <td><span class="code-tag">${r.id}</span></td>
+                <td><b>${esc(r.client)}</b> · ${esc(r.name)}</td>
+                <td>${esc(r.manager)}</td>
+                <td class="mono">${r.ing}</td>
+                <td class="mono">${r.updatedAt}</td>
+                <td><span class="dot" style="background:${q.color}"></span> <b>${esc(q.text)}</b></td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+/* ============================================================================
+   7. MÓDULO MANTENEDOR DE OPORTUNIDADES Y DEMANDAS + FICHA LATERAL
+   ============================================================================ */
+function renderPipelineModule() {
+  const list = getPipelineRecords();
+  const sel = list.find(r => r.id === S.selectedId) || list[0] || null;
+  if (sel) S.selectedId = sel.id;
+  const refM = MONTHS_12[S.refMonthIndex];
+
+  return `
+    <div class="split-view">
+      <div class="split-main card" style="padding:0;overflow:hidden">
+        <div style="padding:14px 18px;border-bottom:1px solid var(--bs-border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+          <div>
+            <span class="card-title">Listado de Oportunidades y Demandas</span>
+            <span style="font-size:12px;color:var(--bs-muted);margin-left:8px">(${list.length} registros · Mes ref: ${refM.lbl})</span>
+          </div>
+          <button class="btn" onclick="exportPipelineCSV()">⤓ Exportar CSV</button>
+        </div>
+        <div class="table-wrap">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Cliente · Sector</th>
+                <th>Servicio / Proyecto</th>
+                <th>Estado</th>
+                <th>Líder</th>
+                <th class="num">HC (${refM.lbl})</th>
+                <th class="num">Base (${refM.lbl})</th>
+                <th class="num">Prob / Conf</th>
+                <th class="num">MAB (${refM.lbl})</th>
+                <th>Control</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${list.length ? list.map(r => {
+                const q = getQualityDiagnosis(r);
+                return `
+                  <tr class="${sel && sel.id === r.id ? 'selected' : ''}" onclick="S.selectedId='${r.id}';refreshWorkspace()">
+                    <td>
+                      <span class="code-tag">${r.id}</span>
+                      ${r.idMana ? `<div class="mono" style="font-size:10px;color:var(--bs-muted)">${esc(r.idMana)}</div>` : ''}
+                    </td>
+                    <td>
+                      <b>${esc(r.client)}</b>
+                      <div style="font-size:11px;color:var(--bs-muted)">${esc(r.sector)}</div>
+                    </td>
+                    <td>
+                      <b>${esc(r.name)}</b>
+                      <div style="font-size:11px;color:var(--bs-muted)">${deriveTipoFromState(r)} · Ing: <span class="mono">${r.ing}</span></div>
+                    </td>
+                    <td>
+                      <span class="badge ${STATES[r.state].cls}">${STATES[r.state].name}</span>
+                      <div style="font-size:10.5px;color:var(--bs-muted);margin-top:2px">${esc(r.flujo)}</div>
+                    </td>
+                    <td><b>${esc(r.manager)}</b></td>
+                    <td class="num"><b>${calcRecordActiveHCInMonth(r, refM)}</b></td>
+                    <td class="num">${fmtCLP(calcRecordMonthBaseCLP(r, refM))}</td>
+                    <td class="num">${r.state === 3 ? 100 : r.prob}% / ${r.conf}%</td>
+                    <td class="num" style="color:var(--bs-primary)"><b>${fmtCLP(calcRecordMonthMABCLP(r, refM))}</b></td>
+                    <td><span class="dot" style="background:${q.color}" title="${esc(q.text)}"></span></td>
+                  </tr>
+                `;
+              }).join('') : `<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--bs-muted)">Sin registros para los filtros seleccionados.</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      ${sel ? renderSideFicha(sel) : ''}
+    </div>
+  `;
+}
+
+function renderSideFicha(r) {
+  const refM = MONTHS_12[S.refMonthIndex];
+  const baseM = calcRecordMonthBaseCLP(r, refM);
+  const mabM = calcRecordMonthMABCLP(r, refM);
+  const fcH = calcRecordHorizonForecastCLP(r, S.forecastHorizon);
+  const editable = canEditRecord(r);
+  const q = getQualityDiagnosis(r);
+
+  let content = '';
+  if (S.sideTab === 'res') {
+    content = `
+      <div class="stepper">
+        ${STATES.slice(0, 4).map((st, idx) => `<div class="step ${idx < r.state && r.state <= 3 ? 'done' : idx === r.state ? 'curr' : ''}">${st.name}</div>`).join('')}
+      </div>
+      ${STATES[r.state].isClosed ? `<div style="background:var(--bs-danger-soft);color:var(--bs-danger);padding:10px;border-radius:8px;margin-bottom:12px;font-weight:700">Registro Cerrado (${STATES[r.state].name}) · Motivo: ${esc(r.closedReason || '—')}${r.cancelDate ? ' · Cancelación: ' + r.cancelDate : ''}</div>` : ''}
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;background:var(--bs-elevated);padding:12px;border-radius:8px;border:1px solid var(--bs-border);margin-bottom:12px;font-size:12px">
+        <div><span style="color:var(--bs-muted);font-size:10.5px;text-transform:uppercase;font-weight:700">Clasificación</span><div><b>${deriveTipoFromState(r)}</b></div></div>
+        <div><span style="color:var(--bs-muted);font-size:10.5px;text-transform:uppercase;font-weight:700">Vigencia del Servicio</span><div class="mono"><b>${r.ing} → ${r.fin}</b></div></div>
+        <div><span style="color:var(--bs-muted);font-size:10.5px;text-transform:uppercase;font-weight:700">Probabilidad (Líder)</span><div class="mono"><b>${r.state === 3 ? 100 : r.prob}%</b></div></div>
+        <div><span style="color:var(--bs-muted);font-size:10.5px;text-transform:uppercase;font-weight:700">Confiabilidad (Operac.)</span><div class="mono" style="color:var(--bs-primary)"><b>${r.conf}%</b></div></div>
+        <div><span style="color:var(--bs-muted);font-size:10.5px;text-transform:uppercase;font-weight:700">Modalidad / Staffing</span><div>${esc(r.modalidad)} · En Staffing: <b>${esc(r.enStaffing)}</b></div></div>
+        <div><span style="color:var(--bs-muted);font-size:10.5px;text-transform:uppercase;font-weight:700">Estado de Control</span><div><span class="dot" style="background:${q.color}"></span> <b>${esc(q.text)}</b></div></div>
+      </div>
+
+      <div style="background:var(--bs-elevated);border:1px solid var(--bs-border-strong);border-radius:8px;padding:12px;margin-bottom:14px">
+        <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--bs-secondary);margin-bottom:6px">Resultado Motor Financiero (${refM.lbl} · ${getHoursForMonth(refM)} h/mes)</div>
+        <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--bs-border)"><span>Base Mensual (${calcRecordActiveHCInMonth(r, refM)} HC activos)</span><b class="mono">${fmtCLP(baseM)}</b></div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px;font-weight:800;color:var(--bs-primary)"><span>MAB Mensual (${refM.lbl})</span><b class="mono">${fmtCLP(mabM)}</b></div>
+        <div style="display:flex;justify-content:space-between;padding-top:4px;font-size:12px;color:var(--bs-secondary)"><span>Forecast Horizonte (${S.forecastHorizon}M)</span><b class="mono">${fmtCLP(fcH)}</b></div>
+      </div>
+
+      ${editable && !STATES[r.state].isClosed ? `
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" style="flex:1;justify-content:center" onclick="openRecordModal('${r.id}')">✎ Editar Datos</button>
+          <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="openStateModal('${r.id}')">⇄ Cambiar Estado</button>
+          ${canEditField(r, 'conf') ? `<button class="btn btn-warning" style="width:100%;justify-content:center" onclick="openConfModal('${r.id}')">⚖ Ajustar Confiabilidad (Con Motivo)</button>` : ''}
+        </div>
+      ` : `<div class="code-tag" style="display:block;text-align:center;padding:8px">Modo solo lectura para tu perfil o estado cerrado</div>`}
+    `;
+  } else if (S.sideTab === 'hc') {
+    content = `
+      <table class="tbl" style="margin-bottom:12px">
+        <thead><tr><th>Perfil</th><th class="num">HC</th><th class="num">Ded.</th><th>Vigencia Perfil</th><th class="num">Tarifa CLP/h</th></tr></thead>
+        <tbody>
+          ${r.profiles.map(p => `
+            <tr>
+              <td><b>${esc(p.role)}</b></td>
+              <td class="num"><b>${p.hc}</b></td>
+              <td class="num">${p.ded}%</td>
+              <td class="mono" style="font-size:11px">${p.from} → ${p.to}</td>
+              <td class="num">
+                ${p.rates.map(rt => `<div>${fmtCLP(rt.rate)}/h <small class="mono">(${rt.eff})</small></div>`).join('')}
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      <div style="font-size:12px;background:var(--bs-elevated);padding:10px;border-radius:8px;border:1px solid var(--bs-border)">
+        <b>Stack Tecnológico:</b> ${esc(r.tech)}
+      </div>
+    `;
+  } else {
+    const recAudits = S.audit.filter(a => a.id === r.id);
+    content = `
+      ${editable ? `
+        <div style="background:var(--bs-elevated);padding:12px;border-radius:8px;border:1px solid var(--bs-border);margin-bottom:14px">
+          <div style="font-size:11px;font-weight:800;text-transform:uppercase;margin-bottom:6px">Registrar Seguimiento en Bitácora (Inmutable)</div>
+          <label class="fld"><span>Tipo</span><select id="log-type"><option>Seguimiento</option><option>Decisión</option><option>Observación</option></select></label>
+          <label class="fld"><span>Detalle del avance o bloqueo</span><textarea id="log-txt" rows="2" placeholder="Acuerdos con el cliente, estado de ternas o definiciones..."></textarea></label>
+          <div class="row-2">
+            <label class="fld"><span>Próxima acción</span><input id="log-next" placeholder="Ej.: Enviar terna final"></label>
+            <label class="fld"><span>Fecha compromiso</span><input type="date" id="log-commit" value="2026-10-30"></label>
+          </div>
+          <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="addLog('${r.id}')">+ Guardar en Bitácora</button>
+        </div>
+      ` : ''}
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;margin-bottom:6px;color:var(--bs-secondary)">Bitácora de Seguimiento</div>
+      <div class="timeline" style="margin-bottom:16px">
+        ${r.logs.map(l => `
+          <div class="tl-node">
+            <div><b>${esc(l.type)}</b> · ${esc(l.u)} <span class="mono" style="font-size:10.5px;color:var(--bs-muted)">${l.t}</span></div>
+            <div>${esc(l.txt)}</div>
+            ${l.nextAction ? `<div style="font-size:11px;color:var(--bs-primary);font-weight:700">↳ Próxima acción: ${esc(l.nextAction)} (${l.commitDate || '—'})</div>` : ''}
+          </div>
+        `).join('')}
+      </div>
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;margin-bottom:6px;color:var(--bs-secondary)">Auditoría de Cambios del Registro</div>
+      <div class="timeline">
+        ${recAudits.map(a => `
+          <div class="tl-node aud">
+            <div><b>${esc(a.field)}:</b> ${esc(a.oldV)} → <b>${esc(a.newV)}</b></div>
+            <div class="mono" style="font-size:10.5px;color:var(--bs-muted)">${a.t} · ${esc(a.u)}</div>
+            ${a.reason ? `<div style="font-size:11px">Motivo: ${esc(a.reason)}</div>` : ''}
+            <div style="font-size:11px;font-weight:700;color:var(--bs-warning)">${esc(a.impact)}</div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  return `
+    <aside class="split-side">
+      <div class="side-head">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span class="badge ${STATES[r.state].cls}">${STATES[r.state].name}</span>
+          <span class="mono" style="font-size:11.5px;color:#6EE7B7">${r.id} ${r.idMana ? '· ' + esc(r.idMana) : ''}</span>
+        </div>
+        <h3 style="font-size:16px;font-weight:800">${esc(r.name)}</h3>
+        <div style="font-size:11.5px;color:#98B3B0;margin-top:3px">${esc(r.client)} (${esc(r.sector)}) · Líder: ${esc(r.manager)}</div>
+      </div>
+      <div class="side-tabs">
+        <button class="side-tab ${S.sideTab === 'res' ? 'active' : ''}" onclick="S.sideTab='res';refreshWorkspace()">Resumen & MAB</button>
+        <button class="side-tab ${S.sideTab === 'hc' ? 'active' : ''}" onclick="S.sideTab='hc';refreshWorkspace()">Perfiles & Tarifas</button>
+        <button class="side-tab ${S.sideTab === 'log' ? 'active' : ''}" onclick="S.sideTab='log';refreshWorkspace()">Bitácora & Auditoría</button>
+      </div>
+      <div class="side-body">${content}</div>
+    </aside>
+  `;
+}
+
+/* ============================================================================
+   8. MÓDULO AUDITORÍA GLOBAL CAMPO POR CAMPO
+   ============================================================================ */
+function renderAuditModule() {
+  const rows = S.audit.filter(a => {
+    const r = S.records.find(x => x.id === a.id);
+    if (S.role === 'Líder' && r && r.manager !== S.userName) return false;
+    if (S.filters.q && !(`${a.id} ${a.field} ${a.u} ${a.reason}`).toLowerCase().includes(S.filters.q.toLowerCase())) return false;
+    return true;
+  });
+
+  return `
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">Registro Histórico de Auditoría por Campo</div>
+          <div class="card-sub">Trazabilidad inmutable de modificaciones con valor anterior, valor nuevo, fecha efectiva, motivo e impacto financiero.</div>
+        </div>
+        <span class="code-tag">🔒 Registro Inmutable · Solo Inserción</span>
+      </div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th>Fecha / Hora</th>
+              <th>Usuario</th>
+              <th>Registro</th>
+              <th>Campo Auditado</th>
+              <th>Valor Anterior</th>
+              <th>Valor Nuevo</th>
+              <th>Vigencia</th>
+              <th>Motivo</th>
+              <th>Impacto en MAB / Forecast</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(a => `
+              <tr onclick="if(S.records.some(r=>r.id==='${a.id}')){S.selectedId='${a.id}';S.sideTab='log';S.module='pipe';refreshWorkspace()}">
+                <td class="mono">${a.t}</td>
+                <td><b>${esc(a.u)}</b></td>
+                <td><span class="code-tag">${a.id}</span></td>
+                <td><b>${esc(a.field)}</b></td>
+                <td>${esc(a.oldV)}</td>
+                <td><b>${esc(a.newV)}</b></td>
+                <td class="mono">${a.eff || '—'}</td>
+                <td>${esc(a.reason || '—')}</td>
+                <td class="mono" style="color:var(--bs-primary);font-weight:600">${esc(a.impact)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================================
+   9. MÓDULO PARÁMETROS GLOBALES Y VIGENCIAS (SOLO OPERACIONES)
+   ============================================================================ */
+function renderParamsModule() {
+  return `
+    <div class="card" style="max-width:780px">
+      <div class="card-title" style="margin-bottom:4px">Parámetros Globales de Cálculo con Fecha de Vigencia</div>
+      <div class="card-sub" style="margin-bottom:14px">Los cambios de horas mensuales aplican a partir del mes de su fecha de vigencia sin alterar períodos anteriores.</div>
+
+      <table class="tbl" style="margin-bottom:16px">
+        <thead><tr><th>Parámetro</th><th>Valor Configurado</th><th>Vigente desde</th></tr></thead>
+        <tbody>
+          ${S.hoursSchedule.map(h => `<tr><td><b>Horas mensuales base de facturación</b></td><td class="mono"><b>${h.hours} h / mes</b></td><td class="mono">${h.eff}</td></tr>`).join('')}
+          <tr><td><b>Confiabilidad inicial por defecto (Nuevos registros)</b></td><td class="mono"><b>${S.defaultConf} %</b></td><td class="mono">Permanente</td></tr>
+        </tbody>
+      </table>
+
+      <div class="row-3">
+        <label class="fld"><span>Nuevas Horas Mensuales (h)</span><input type="number" id="p-new-hours" value="176" min="1"></label>
+        <label class="fld"><span>Vigente desde</span><input type="date" id="p-eff-date" value="2027-01-01"></label>
+        <label class="fld"><span>Confiabilidad Inicial (%)</span><input type="number" id="p-new-conf" value="${S.defaultConf}" min="0" max="100"></label>
+      </div>
+      <label class="fld"><span>Motivo de la modificación (Obligatorio para Auditoría)</span><input id="p-reason" placeholder="Ej.: Ajuste de horas hábiles para calendario 2027"></label>
+      <button class="btn btn-primary" onclick="saveParamsWithVigencia()">Guardar Parámetros y Auditar</button>
+    </div>
+  `;
+}
+
+function saveParamsWithVigencia() {
+  const newH = Number(document.getElementById('p-new-hours').value);
+  const eff = document.getElementById('p-eff-date').value;
+  const newC = Number(document.getElementById('p-new-conf').value);
+  const reason = document.getElementById('p-reason').value.trim();
+  if (!(newH > 0) || !eff || !(newC >= 0 && newC <= 100) || !reason) {
+    toast('Completa valores válidos, fecha de vigencia y el motivo obligatorio.');
+    return;
+  }
+  const nowStr = S.todayISO + ' ' + new Date().toTimeString().slice(0, 5);
+  const lastH = S.hoursSchedule[S.hoursSchedule.length - 1].hours;
+
+  if (newH !== lastH) {
+    S.hoursSchedule.push({ eff, hours: newH });
+    S.audit.unshift({
+      t: nowStr, u: `${S.userId} (${S.userName})`, id: 'PARÁMETRO',
+      field: 'Horas mensuales con vigencia', oldV: `${lastH} h`, newV: `${newH} h`, eff, reason,
+      impact: `Aplica desde ${eff} (${(((newH - lastH) / lastH) * 100).toFixed(2)}% en meses vigentes)`, origin: 'Pantalla'
+    });
+  }
+  if (newC !== S.defaultConf) {
+    const oldC = S.defaultConf;
+    S.defaultConf = newC;
+    S.audit.unshift({
+      t: nowStr, u: `${S.userId} (${S.userName})`, id: 'PARÁMETRO',
+      field: 'Confiabilidad inicial por defecto', oldV: `${oldC} %`, newV: `${newC} %`, eff, reason,
+      impact: 'Aplica a los nuevos registros creados en adelante', origin: 'Pantalla'
+    });
+  }
+  refreshWorkspace();
+  toast('Parámetros actualizados y registrados en auditoría.');
+}
+
+/* ============================================================================
+   10. FORMULARIO SIMPLIFICADO DE ALTA Y EDICIÓN (CON SINCRONIZACIÓN DE FECHAS)
+   ============================================================================ */
+let DRAFT = null;
+
+function openRecordModal(id = null) {
+  const rec = id ? S.records.find(r => r.id === id) : null;
+  DRAFT = rec ? JSON.parse(JSON.stringify(rec)) : {
+    id: null, idMana: '', created: S.todayISO,
+    name: '', client: '', sector: 'Banca', studio: 'Sí',
+    isDirectDemand: false, directReason: '',
+    manager: S.role === 'Líder' ? S.userName : 'J. Rivas',
+    tech: 'Java / Spring', modalidad: 'NTT', enStaffing: 'No',
+    flujo: 'En espera de definición', state: 0, prob: 30, conf: S.defaultConf,
+    ing: '2026-11-01', fin: '2027-06-30', cancelDate: null, closedReason: '', updatedAt: S.todayISO,
+    profiles: [{ role: 'Desarrollador Sr', hc: 2, ded: 100, from: '2026-11-01', to: '2027-06-30', rates: [{ rate: 25000, eff: '2026-11-01' }] }],
+    logs: []
+  };
+  renderRecordModalContent();
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function onDraftDatesChange(newIng, newFin) {
+  const oldIng = DRAFT.ing;
+  const oldFin = DRAFT.fin;
+  if (newIng !== null) DRAFT.ing = newIng;
+  if (newFin !== null) DRAFT.fin = newFin;
+  // Sincronizar automáticamente las fechas de los perfiles que estaban alineadas con el registro
+  DRAFT.profiles.forEach(p => {
+    if (!p.from || p.from === oldIng || p.from < DRAFT.ing) p.from = DRAFT.ing;
+    if (!p.to || p.to === oldFin || p.to > DRAFT.fin) p.to = DRAFT.fin;
+    if (p.rates && p.rates.length === 1 && p.rates[0].eff === oldIng) {
+      p.rates[0].eff = DRAFT.ing;
+    }
+  });
+  validateDraftForm();
+}
+
+function renderRecordModalContent() {
+  const box = document.getElementById('modal-box');
+  box.className = 'modal-box';
+  const st = STATES[DRAFT.state];
+  const isLider = S.role === 'Líder';
+
+  box.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--bs-border)">
+      <div>
+        <span class="p-tag">Gestión de Pipeline</span>
+        <h3 style="font-size:18px;margin-top:3px">${DRAFT.id ? 'Editar Registro ' + DRAFT.id : 'Nuevo Registro de Oportunidad / Demanda'}</h3>
+      </div>
+      <button class="btn" onclick="closeModal()">✕ Cerrar</button>
+    </div>
+
+    ${!DRAFT.id ? `
+      <div style="background:var(--bs-elevated);padding:10px 12px;border-radius:8px;border:1px solid var(--bs-border);margin-bottom:12px">
+        <label style="display:flex;align-items:center;gap:8px;font-weight:700;cursor:pointer">
+          <input type="checkbox" ${DRAFT.isDirectDemand ? 'checked' : ''} onchange="DRAFT.isDirectDemand=this.checked;DRAFT.state=this.checked?2:0;DRAFT.prob=this.checked?90:30;DRAFT.flujo=STATES[DRAFT.state].autoFlujo;DRAFT.enStaffing=STATES[DRAFT.state].autoStaffing;renderRecordModalContent()">
+          <span>Registrar como Demanda Directa Adjudicada (renovación o ampliación directa · exige motivo)</span>
+        </label>
+        ${DRAFT.isDirectDemand ? `<label class="fld" style="margin-top:8px;margin-bottom:0"><span>Motivo de la Demanda Directa *</span><input value="${esc(DRAFT.directReason)}" oninput="DRAFT.directReason=this.value;validateDraftForm()" placeholder="Ej.: Ampliación de célula aprobada por cliente"></label>` : ''}
+      </div>
+    ` : ''}
+
+    <div class="row-3">
+      <label class="fld"><span>Servicio / Proyecto *</span><input value="${esc(DRAFT.name)}" oninput="DRAFT.name=this.value;validateDraftForm()" placeholder="Nombre del proyecto o servicio"></label>
+      <label class="fld"><span>Cliente *</span><input value="${esc(DRAFT.client)}" oninput="DRAFT.client=this.value;validateDraftForm()" placeholder="Nombre del cliente"></label>
+      <label class="fld"><span>Sector *</span>
+        <select onchange="DRAFT.sector=this.value">${SECTORS_CATALOG.map(s => `<option ${DRAFT.sector === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
+      </label>
+    </div>
+
+    <div class="row-3">
+      <label class="fld"><span>Líder Responsable ${isLider ? '(Asignado)' : ''}</span>
+        <select ${isLider ? 'disabled' : ''} onchange="DRAFT.manager=this.value">
+          ${MANAGERS_CATALOG.map(m => `<option ${DRAFT.manager === m ? 'selected' : ''}>${m}</option>`).join('')}
+        </select>
+      </label>
+      <label class="fld"><span>Stack Tecnológico Principal</span><input value="${esc(DRAFT.tech)}" oninput="DRAFT.tech=this.value" placeholder="Ej.: Java / Spring / React"></label>
+      <div class="row-2">
+        <label class="fld"><span>Modalidad</span>
+          <select onchange="DRAFT.modalidad=this.value"><option ${DRAFT.modalidad === 'NTT' ? 'selected' : ''}>NTT</option><option ${DRAFT.modalidad === 'Subcontratación' ? 'selected' : ''}>Subcontratación</option></select>
+        </label>
+        <label class="fld"><span>ID Externo (Opc.)</span>
+          <input value="${esc(DRAFT.idMana)}" oninput="DRAFT.idMana=this.value" placeholder="EXT-000">
+        </label>
+      </div>
+    </div>
+
+    <div class="row-3">
+      <label class="fld"><span>Fecha de Ingreso *</span><input type="date" value="${DRAFT.ing}" oninput="onDraftDatesChange(this.value, null)"></label>
+      <label class="fld"><span>Fin de Vigencia *</span><input type="date" value="${DRAFT.fin}" oninput="onDraftDatesChange(null, this.value)"></label>
+      <label class="fld"><span>Probabilidad % (${st.name}: ${st.min}–${st.max}%)</span>
+        <input type="number" value="${DRAFT.prob}" ${DRAFT.state === 3 ? 'disabled' : ''} oninput="DRAFT.prob=Number(this.value);validateDraftForm()">
+      </label>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:12px 0 6px">
+      <span style="font-size:11.5px;font-weight:800;text-transform:uppercase;color:var(--bs-secondary)">Perfiles Requeridos, HC y Tarifa (CLP/hora)</span>
+      <button class="btn" onclick="DRAFT.profiles.push({role:'Nuevo Perfil',hc:1,ded:100,from:DRAFT.ing,to:DRAFT.fin,rates:[{rate:25000,eff:DRAFT.ing}]});renderRecordModalContent()">+ Añadir Perfil</button>
+    </div>
+
+    ${DRAFT.profiles.map((p, idx) => {
+      const latestRateObj = p.rates[p.rates.length - 1];
+      return `
+        <div style="display:grid;grid-template-columns:1.8fr 0.7fr 0.8fr 1.1fr 1.1fr 1.2fr auto;gap:8px;align-items:end;margin-bottom:8px;background:var(--bs-elevated);padding:8px;border-radius:8px;border:1px solid var(--bs-border)">
+          <label class="fld" style="margin:0"><span>Rol / Perfil *</span><input value="${esc(p.role)}" oninput="DRAFT.profiles[${idx}].role=this.value;validateDraftForm()"></label>
+          <label class="fld" style="margin:0"><span>HC (≥1)</span><input type="number" min="1" step="1" value="${p.hc}" oninput="DRAFT.profiles[${idx}].hc=Number(this.value);validateDraftForm()"></label>
+          <label class="fld" style="margin:0"><span>Dedic. %</span><input type="number" min="10" max="100" value="${p.ded}" oninput="DRAFT.profiles[${idx}].ded=Number(this.value);validateDraftForm()"></label>
+          <label class="fld" style="margin:0"><span>Inicio Perfil</span><input type="date" value="${p.from || DRAFT.ing}" oninput="DRAFT.profiles[${idx}].from=this.value;validateDraftForm()"></label>
+          <label class="fld" style="margin:0"><span>Fin Perfil</span><input type="date" value="${p.to || DRAFT.fin}" oninput="DRAFT.profiles[${idx}].to=this.value;validateDraftForm()"></label>
+          <label class="fld" style="margin:0"><span>Tarifa CLP/h</span><input type="number" min="1" value="${latestRateObj.rate}" oninput="DRAFT.profiles[${idx}].rates[DRAFT.profiles[${idx}].rates.length-1].rate=Number(this.value);validateDraftForm()"></label>
+          ${DRAFT.profiles.length > 1 ? `<button class="btn" onclick="DRAFT.profiles.splice(${idx},1);renderRecordModalContent()" title="Eliminar perfil">✕</button>` : ''}
+        </div>
+      `;
+    }).join('')}
+
+    <div id="draft-calc-banner" style="background:var(--bs-header);color:#fff;padding:12px 16px;border-radius:8px;margin-top:12px;display:flex;justify-content:space-between;align-items:center"></div>
+    <div class="err-text" id="draft-err-box"></div>
+
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-rec" onclick="saveDraftRecord()">Guardar Registro</button>
+    </div>
+  `;
+  validateDraftForm();
+}
+
+function validateDraftForm() {
+  const errs = [];
+  const st = STATES[DRAFT.state];
+  if (!DRAFT.name.trim()) errs.push('El nombre del servicio/proyecto es obligatorio.');
+  if (!DRAFT.client.trim()) errs.push('El cliente es obligatorio.');
+  if (!DRAFT.ing || !DRAFT.fin || DRAFT.fin < DRAFT.ing) errs.push('La fecha de fin debe ser igual o posterior a la fecha de ingreso.');
+  if (DRAFT.prob < st.min || DRAFT.prob > st.max) errs.push(`Probabilidad fuera del rango del estado ${st.name} (${st.min}–${st.max}%).`);
+  if (DRAFT.isDirectDemand && !DRAFT.id && !DRAFT.directReason.trim()) errs.push('Indica el motivo de la demanda directa.');
+  if (DRAFT.profiles.some(p => !p.role.trim())) errs.push('Todos los perfiles deben tener nombre.');
+  if (DRAFT.profiles.some(p => !Number.isInteger(Number(p.hc)) || Number(p.hc) < 1)) errs.push('El HC de cada perfil debe ser un entero ≥ 1.');
+  if (DRAFT.profiles.some(p => !(Number(p.ded) >= 10 && Number(p.ded) <= 100))) errs.push('La dedicación debe estar entre 10% y 100%.');
+  if (DRAFT.profiles.some(p => !(Number(p.rates[p.rates.length - 1].rate) > 0))) errs.push('La tarifa en CLP/h debe ser mayor a 0.');
+
+  const errEl = document.getElementById('draft-err-box');
+  const saveBtn = document.getElementById('btn-save-rec');
+  if (errEl) {
+    errEl.textContent = errs.join(' · ');
+    if (typeof presentDraftErrors === 'function') presentDraftErrors(errs);
+  }
+  if (saveBtn) saveBtn.disabled = errs.length > 0;
+
+  const refM = MONTHS_12[S.refMonthIndex];
+  const bVal = calcRecordMonthBaseCLP(DRAFT, refM);
+  const mVal = calcRecordMonthMABCLP(DRAFT, refM);
+  const fcVal = calcRecordHorizonForecastCLP(DRAFT, S.forecastHorizon);
+  const banner = document.getElementById('draft-calc-banner');
+  if (banner) {
+    banner.innerHTML = `
+      <div>
+        <span style="font-size:11px;color:#6EE7B7">Simulación en vivo (${refM.lbl})</span>
+        <div class="mono">Base: <b>${fmtCLP(bVal)}</b> · Prob: ${DRAFT.prob}% · Conf: ${DRAFT.conf}%</div>
+      </div>
+      <div style="text-align:right">
+        <span style="font-size:11px;color:#98B3B0">MAB (${refM.lbl}): <b style="color:#34D399">${fmtCLP(mVal)}</b></span>
+        <div class="mono" style="font-size:13px;color:#E2E8F0">Forecast (${S.forecastHorizon}M): <b>${fmtCLP(fcVal)}</b></div>
+      </div>
+    `;
+  }
+}
+
+function saveDraftRecord() {
+  const refM = MONTHS_12[S.refMonthIndex];
+  const nowStr = S.todayISO + ' ' + new Date().toTimeString().slice(0, 5);
+  const actor = `${S.userId} (${S.userName})`;
+
+  if (DRAFT.id) {
+    const idx = S.records.findIndex(r => r.id === DRAFT.id);
+    const oldR = S.records[idx];
+    const oldMAB = calcRecordMonthMABCLP(oldR, refM);
+    const newMAB = calcRecordMonthMABCLP(DRAFT, refM);
+    const oldFC = calcRecordHorizonForecastCLP(oldR, S.forecastHorizon);
+    const newFC = calcRecordHorizonForecastCLP(DRAFT, S.forecastHorizon);
+    const impactStr = `MAB ${fmtCLP(oldMAB)} → ${fmtCLP(newMAB)} · Forecast(${S.forecastHorizon}M) ${fmtCLP(oldFC)} → ${fmtCLP(newFC)}`;
+
+    const pushAudit = (field, oldV, newV, eff = S.todayISO) => {
+      S.audit.unshift({ t: nowStr, u: actor, id: DRAFT.id, field, oldV: String(oldV), newV: String(newV), eff, reason: 'Actualización en mantenedor', impact: impactStr, origin: 'Pantalla' });
+    };
+
+    if (oldR.name !== DRAFT.name) pushAudit('Servicio / Proyecto', oldR.name, DRAFT.name);
+    if (oldR.client !== DRAFT.client) pushAudit('Cliente', oldR.client, DRAFT.client);
+    if (oldR.sector !== DRAFT.sector) pushAudit('Sector', oldR.sector, DRAFT.sector);
+    if (oldR.manager !== DRAFT.manager) pushAudit('Líder Responsable', oldR.manager, DRAFT.manager);
+    if (oldR.prob !== DRAFT.prob) pushAudit('Probabilidad', `${oldR.prob} %`, `${DRAFT.prob} %`);
+    if (oldR.ing !== DRAFT.ing) pushAudit('Fecha de ingreso', oldR.ing, DRAFT.ing, DRAFT.ing);
+    if (oldR.fin !== DRAFT.fin) pushAudit('Fin de vigencia', oldR.fin, DRAFT.fin, DRAFT.fin);
+    if (oldR.modalidad !== DRAFT.modalidad) pushAudit('Modalidad', oldR.modalidad, DRAFT.modalidad);
+    if (oldR.tech !== DRAFT.tech) pushAudit('Stack Tecnológico', oldR.tech, DRAFT.tech);
+
+    const maxLen = Math.max(oldR.profiles.length, DRAFT.profiles.length);
+    for (let i = 0; i < maxLen; i++) {
+      const op = oldR.profiles[i];
+      const np = DRAFT.profiles[i];
+      if (!op && np) {
+        const nr = np.rates[np.rates.length - 1];
+        pushAudit(`Nuevo perfil (${np.role})`, '—', `${np.hc} HC · CLP ${fmtCLP(nr.rate)}/h`, np.from);
+      } else if (op && !np) {
+        pushAudit(`Baja perfil (${op.role})`, `${op.hc} HC`, 'Eliminado');
+      } else if (op && np) {
+        if (op.hc !== np.hc) pushAudit(`HC (${np.role})`, `${op.hc} personas`, `${np.hc} personas`, np.from);
+        const orate = op.rates[op.rates.length - 1];
+        const nrate = np.rates[np.rates.length - 1];
+        if (orate.rate !== nrate.rate) {
+          pushAudit(`Tarifa (${np.role})`, `CLP ${fmtCLP(orate.rate)}/h`, `CLP ${fmtCLP(nrate.rate)}/h`, nrate.eff);
+        }
+        if (op.ded !== np.ded) pushAudit(`Dedicación (${np.role})`, `${op.ded} %`, `${np.ded} %`);
+        if (op.from !== np.from || op.to !== np.to) pushAudit(`Vigencia perfil (${np.role})`, `${op.from}→${op.to}`, `${np.from}→${np.to}`);
+      }
+    }
+
+    DRAFT.updatedAt = S.todayISO;
+    S.records[idx] = DRAFT;
+    toast(`Registro ${DRAFT.id} actualizado y auditado.`);
+  } else {
+    const newId = 'OPD-0' + (S.nextSeq++);
+    DRAFT.id = newId;
+    DRAFT.updatedAt = S.todayISO;
+    DRAFT.flujo = STATES[DRAFT.state].autoFlujo;
+    DRAFT.enStaffing = STATES[DRAFT.state].autoStaffing;
+    DRAFT.logs = [{
+      t: nowStr, u: S.userName, type: 'Decisión',
+      txt: DRAFT.isDirectDemand ? `Alta como demanda directa: ${DRAFT.directReason}` : 'Alta inicial de oportunidad en el pipeline.',
+      nextAction: 'Validar alcance y cronograma con el cliente', commitDate: '2026-11-05'
+    }];
+    S.records.unshift(DRAFT);
+    S.selectedId = newId;
+    S.audit.unshift({
+      t: nowStr, u: actor, id: newId, field: 'Creación del registro',
+      oldV: '—', newV: `${STATES[DRAFT.state].name} (${DRAFT.prob}%) · Conf. ${DRAFT.conf}%`,
+      eff: DRAFT.ing, reason: DRAFT.directReason || 'Alta en sistema',
+      impact: `MAB inicial ${fmtCLP(calcRecordMonthMABCLP(DRAFT, refM))}/mes`, origin: 'Pantalla'
+    });
+    toast(`Registro ${newId} creado exitosamente.`);
+  }
+  closeModal();
+  refreshWorkspace();
+}
+
+/* ============================================================================
+   11. TRANSICIÓN DE ESTADOS Y AJUSTE DE CONFIABILIDAD
+   ============================================================================ */
+function openStateModal(id) {
+  const r = S.records.find(x => x.id === id);
+  const allowed = ALLOWED_TRANSITIONS[r.state] || [];
+  const firstNext = STATES[allowed[0]];
+  const defaultProb = firstNext.id === 3 ? 100 : (firstNext.isClosed ? (firstNext.id === 6 ? 100 : 0) : Math.max(firstNext.min, Math.min(firstNext.max, r.prob)));
+
+  const box = document.getElementById('modal-box');
+  box.className = 'modal-box sm';
+
+  box.innerHTML = `
+    <h3 style="font-size:17px;margin-bottom:6px">Cambiar Estado · ${r.id}</h3>
+    <p style="font-size:12px;color:var(--bs-secondary);margin-bottom:12px">Estado actual: <b>${STATES[r.state].name} (${r.prob}%)</b>. El cierre aplica baja lógica preservando todo el historial.</p>
+    <label class="fld">
+      <span>Nuevo estado permitido</span>
+      <select id="st-next-val" onchange="onNextStateSelectChange(${r.prob})">
+        ${allowed.map(stId => `<option value="${stId}">${STATES[stId].name} (${STATES[stId].isClosed ? 'Cierre con baja lógica' : 'Probabilidad ' + STATES[stId].min + '–' + STATES[stId].max + '%'})</option>`).join('')}
+      </select>
+    </label>
+    <div id="st-prob-wrap" style="display:${firstNext.isClosed || firstNext.id === 3 ? 'none' : 'block'}">
+      <label class="fld">
+        <span id="st-prob-lbl">Nueva Probabilidad (%) · Rango ${firstNext.min}–${firstNext.max}%</span>
+        <input type="number" id="st-prob-val" min="${firstNext.min}" max="${firstNext.max}" value="${defaultProb}">
+      </label>
+    </div>
+    <div id="cancel-date-wrap" style="display:${firstNext.id === 6 ? 'block' : 'none'}">
+      <label class="fld">
+        <span>Fecha de Cancelación (Ese día ya no se factura en el prorrateo mensual)</span>
+        <input type="date" id="st-cancel-date" value="2027-03-15">
+      </label>
+    </div>
+    <label class="fld">
+      <span>Motivo (Obligatorio para retrocesos o cierres)</span>
+      <textarea id="st-motivo" rows="2" placeholder="Explica el motivo de la transición..."></textarea>
+    </label>
+    <div class="err-text" id="st-err-msg"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="applyStateTransition('${r.id}')">Confirmar Cambio</button>
+    </div>
+  `;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function onNextStateSelectChange(currProb) {
+  const nextId = Number(document.getElementById('st-next-val').value);
+  const st = STATES[nextId];
+  const probWrap = document.getElementById('st-prob-wrap');
+  const probInput = document.getElementById('st-prob-val');
+  const probLbl = document.getElementById('st-prob-lbl');
+  const cancelWrap = document.getElementById('cancel-date-wrap');
+
+  cancelWrap.style.display = nextId === 6 ? 'block' : 'none';
+  if (st.isClosed || nextId === 3) {
+    probWrap.style.display = 'none';
+    probInput.value = nextId === 3 || nextId === 6 ? 100 : 0;
+  } else {
+    probWrap.style.display = 'block';
+    probLbl.textContent = `Nueva Probabilidad (%) · Rango ${st.min}–${st.max}%`;
+    probInput.min = st.min;
+    probInput.max = st.max;
+    probInput.value = Math.max(st.min, Math.min(st.max, currProb));
+  }
+}
+
+function applyStateTransition(id) {
+  const r = S.records.find(x => x.id === id);
+  const nextState = Number(document.getElementById('st-next-val').value);
+  const stObj = STATES[nextState];
+  const motivo = document.getElementById('st-motivo').value.trim();
+  const isClose = stObj.isClosed;
+  const isBack = !isClose && nextState < r.state;
+
+  if ((isClose || isBack) && !motivo) {
+    document.getElementById('st-err-msg').textContent = 'El motivo es obligatorio para retroceder o cerrar un registro.';
+    return;
+  }
+
+  let nextProb = Number(document.getElementById('st-prob-val').value);
+  if (nextState === 3 || nextState === 6) nextProb = 100;
+  else if (nextState === 4 || nextState === 5) nextProb = 0;
+  else if (nextProb < stObj.min || nextProb > stObj.max) {
+    document.getElementById('st-err-msg').textContent = `La probabilidad debe estar entre ${stObj.min}% y ${stObj.max}%.`;
+    return;
+  }
+
+  const refM = MONTHS_12[S.refMonthIndex];
+  const oldMAB = calcRecordMonthMABCLP(r, refM);
+  const oldStateName = `${STATES[r.state].name} (${r.prob}%)`;
+
+  r.state = nextState;
+  r.prob = nextProb;
+  r.flujo = stObj.autoFlujo;
+  r.enStaffing = stObj.autoStaffing;
+
+  if (isClose) {
+    r.closedReason = motivo;
+    if (nextState === 6) {
+      r.cancelDate = document.getElementById('st-cancel-date').value || S.todayISO;
+    }
+  }
+  r.updatedAt = S.todayISO;
+
+  const newMAB = calcRecordMonthMABCLP(r, refM);
+  const nowStr = S.todayISO + ' ' + new Date().toTimeString().slice(0, 5);
+  S.audit.unshift({
+    t: nowStr, u: `${S.userId} (${S.userName})`, id: r.id,
+    field: 'Estado / Probabilidad', oldV: oldStateName, newV: `${STATES[r.state].name} (${r.prob}%)`,
+    eff: r.cancelDate || S.todayISO, reason: motivo || 'Avance de pipeline',
+    impact: `MAB (${refM.lbl}) ${fmtCLP(oldMAB)} → ${fmtCLP(newMAB)}`, origin: 'Pantalla'
+  });
+
+  closeModal();
+  refreshWorkspace();
+  toast(`Estado de ${r.id} actualizado a «${STATES[r.state].name}» (${r.prob}%).`);
+}
+
+function openConfModal(id) {
+  const r = S.records.find(x => x.id === id);
+  if (!canEditField(r, 'conf')) { toast('Permiso restringido: solo Operaciones ajusta la confiabilidad.'); return; }
+  const box = document.getElementById('modal-box');
+  box.className = 'modal-box sm';
+  box.innerHTML = `
+    <h3 style="font-size:17px;margin-bottom:6px">Ajustar Confiabilidad (Operaciones) · ${r.id}</h3>
+    <label class="fld"><span>Nueva Confiabilidad (%) · Actual: ${r.conf}%</span><input type="number" id="c-val" min="0" max="100" value="${r.conf}"></label>
+    <label class="fld"><span>Motivo Obligatorio</span><textarea id="c-mot" rows="2" placeholder="Justifica el ajuste de confiabilidad operativa..."></textarea></label>
+    <div class="err-text" id="c-err"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="applyConfChange('${r.id}')">Guardar y Auditar</button>
+    </div>
+  `;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function applyConfChange(id) {
+  const r = S.records.find(x => x.id === id);
+  const val = Number(document.getElementById('c-val').value);
+  const mot = document.getElementById('c-mot').value.trim();
+  if (!(val >= 0 && val <= 100) || !mot) {
+    document.getElementById('c-err').textContent = 'Ingresa un porcentaje válido (0–100) y el motivo obligatorio.';
+    return;
+  }
+  const refM = MONTHS_12[S.refMonthIndex];
+  const oldMAB = calcRecordMonthMABCLP(r, refM);
+  const oldC = r.conf;
+  r.conf = val;
+  r.updatedAt = S.todayISO;
+  const newMAB = calcRecordMonthMABCLP(r, refM);
+
+  S.audit.unshift({
+    t: S.todayISO + ' ' + new Date().toTimeString().slice(0, 5),
+    u: `${S.userId} (${S.userName})`, id: r.id,
+    field: 'Confiabilidad', oldV: `${oldC} %`, newV: `${val} %`,
+    eff: S.todayISO, reason: mot,
+    impact: `MAB (${refM.lbl}) ${fmtCLP(oldMAB)} → ${fmtCLP(newMAB)} (${newMAB >= oldMAB ? '+' : ''}${fmtCLP(newMAB - oldMAB)})`,
+    origin: 'Pantalla'
+  });
+  closeModal();
+  refreshWorkspace();
+  toast(`Confiabilidad de ${r.id} actualizada a ${val}%.`);
+}
+
+function addLog(id) {
+  const r = S.records.find(x => x.id === id);
+  const txt = document.getElementById('log-txt').value.trim();
+  const nextAction = document.getElementById('log-next').value.trim();
+  const commitDate = document.getElementById('log-commit').value;
+  const type = document.getElementById('log-type').value;
+  if (!txt) { toast('Escribe el detalle del seguimiento en la bitácora.'); return; }
+  const nowStr = S.todayISO + ' ' + new Date().toTimeString().slice(0, 5);
+  r.logs.unshift({ t: nowStr, u: S.userName, type, txt, nextAction, commitDate });
+  r.updatedAt = S.todayISO;
+  S.audit.unshift({
+    t: nowStr, u: `${S.userId} (${S.userName})`, id: r.id,
+    field: 'Bitácora', oldV: '—', newV: `${type}: ${txt.slice(0, 45)}`,
+    eff: commitDate || S.todayISO, reason: nextAction ? `Próx. acción: ${nextAction}` : '',
+    impact: 'Actualización de seguimiento', origin: 'Pantalla'
+  });
+  refreshWorkspace();
+  toast('Seguimiento registrado en la bitácora.');
+}
+
+// Exportación funcional a CSV (sustituye al botón decorativo anterior)
+function exportPipelineCSV() {
+  const rows = getPipelineRecords();
+  const refM = MONTHS_12[S.refMonthIndex];
+  const headers = ['Codigo', 'ID_Externo', 'Cliente', 'Sector', 'Proyecto', 'Estado', 'Lider', 'Ingreso', 'Fin', 'HC_Mes', 'Probabilidad_%', 'Confiabilidad_%', 'Base_Mensual_CLP', 'MAB_Mensual_CLP'];
+  const csvLines = [
+    headers.join(';'),
+    ...rows.map(r => [
+      r.id,
+      r.idMana || '',
+      `"${r.client.replace(/"/g, '""')}"`,
+      r.sector,
+      `"${r.name.replace(/"/g, '""')}"`,
+      STATES[r.state].name,
+      r.manager,
+      r.ing,
+      r.fin,
+      calcRecordActiveHCInMonth(r, refM),
+      r.state === 3 ? 100 : r.prob,
+      r.conf,
+      Math.round(calcRecordMonthBaseCLP(r, refM)),
+      Math.round(calcRecordMonthMABCLP(r, refM))
+    ].join(';'))
+  ];
+  const blob = new Blob(['\uFEFF' + csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `proyecta-pipeline-${refM.key}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast(`Archivo CSV exportado (${rows.length} registros).`);
+}
+
+function switchRole(role) {
+  S.role = role;
+  if (role === 'Operaciones') { S.userId = 'USR-OP-01'; S.userName = 'M. Soto'; S.filters.manager = 'ALL'; }
+  else if (role === 'Líder') { S.userId = 'USR-LD-01'; S.userName = 'J. Rivas'; S.filters.manager = 'J. Rivas'; }
+  else { S.userId = 'USR-EJ-01'; S.userName = 'Comité Ejecutivo'; S.filters.manager = 'ALL'; }
+  document.getElementById('filter-manager').value = S.filters.manager;
+  if (role !== 'Operaciones' && S.module === 'params') S.module = 'dash';
+  document.getElementById('login-modal').classList.remove('active');
+  refreshWorkspace();
+  toast(`Sesión activa: ${role} (${S.userName})`);
+}
+
+function toggleTheme() {
+  const html = document.documentElement;
+  const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme', next);
+  document.getElementById('theme-btn').textContent = next === 'dark' ? '☀ Modo Claro' : '☾ Modo Oscuro';
+}
+
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.display = 'block';
+  clearTimeout(window._t);
+  window._t = setTimeout(() => el.style.display = 'none', 3200);
+}
+
+</script>
+<script src="proyecta-mvp-ux.js"></script>
+</body>
+</html>

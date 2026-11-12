@@ -1,0 +1,171 @@
+{#-
+  T076 · Serie y detalle de cálculo.
+  Todos los valores llegan calculados por el motor; la plantilla no aplica
+  fórmulas de negocio (Principio II). Espera:
+    - registro: Registro
+    - resultado: ResultadoRegistro (con .meses)
+    - serie: list[dict] opcional para el gráfico (ya calculada)
+    - es_previsualizacion: bool opcional
+-#}
+{% extends "base.html" %}
+
+{% block titulo %}Cálculo · {{ registro.codigo }}{% endblock %}
+
+{% block contenido %}
+<section class="container-fluid py-4" aria-labelledby="titulo-calculo">
+  <header class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+      <h1 id="titulo-calculo" class="h3 mb-1">
+        Cálculo de {{ registro.codigo }}
+      </h1>
+      <p class="text-muted mb-0">
+        {{ registro.tipo.value }} · {{ registro.estado.value }} · flujo {{ registro.flujo.value }}
+      </p>
+    </div>
+    <div class="d-flex gap-2">
+      {% if es_previsualizacion %}
+        <span class="badge text-bg-warning" role="status">
+          Previsualización transitoria: no se guarda ni altera estados
+        </span>
+      {% endif %}
+      <a class="btn btn-outline-secondary" href="/registros/{{ registro.id }}">Volver al registro</a>
+    </div>
+  </header>
+
+  <div class="row g-3 mb-4">
+    <div class="col-12 col-md-6 col-xl-3">
+      <div class="card h-100">
+        <div class="card-body">
+          <p class="text-muted text-uppercase small mb-1">MAB del horizonte</p>
+          <p class="h4 mb-0" data-testid="total-mab">{{ "{:,}".format(resultado.total_mab()).replace(",", ".") }} CLP</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-md-6 col-xl-3">
+      <div class="card h-100">
+        <div class="card-body">
+          <p class="text-muted text-uppercase small mb-1">Forecast del horizonte</p>
+          <p class="h4 mb-0" data-testid="total-forecast">{{ "{:,}".format(resultado.total_forecast()).replace(",", ".") }} CLP</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-xl-6">
+      <div class="card h-100">
+        <div class="card-body">
+          <p class="text-muted text-uppercase small mb-2">Fórmulas aplicadas</p>
+          <ul class="list-unstyled small mb-0">
+            <li><strong>Base</strong>: Σ hc × dedicación × tarifa × horas × fracción activa</li>
+            <li><strong>MAB</strong>: Base × probabilidad × confiabilidad</li>
+            <li><strong>Forecast</strong>: Backlog contractual + MAB (una sola bolsa por mes)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header">Serie mensual</div>
+    <div class="table-responsive">
+      <table class="table table-sm table-striped align-middle mb-0" data-testid="serie-calculo">
+        <thead>
+          <tr>
+            <th scope="col">Mes</th>
+            <th scope="col" class="text-end">Base CLP</th>
+            <th scope="col" class="text-end">MAB CLP</th>
+            <th scope="col" class="text-end">Backlog CLP</th>
+            <th scope="col" class="text-end">Forecast CLP</th>
+            <th scope="col" class="text-end">HC</th>
+            <th scope="col">Bolsa</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for detalle in resultado.meses %}
+          <tr>
+            <th scope="row">{{ detalle.mes }}</th>
+            <td class="text-end">{{ "{:,}".format(detalle.base_clp).replace(",", ".") }}</td>
+            <td class="text-end">{{ "{:,}".format(detalle.mab_clp).replace(",", ".") }}</td>
+            <td class="text-end">{{ "{:,}".format(detalle.backlog_clp).replace(",", ".") }}</td>
+            <td class="text-end fw-semibold">{{ "{:,}".format(detalle.forecast_clp).replace(",", ".") }}</td>
+            <td class="text-end">{{ detalle.hc }}</td>
+            <td>
+              {% if detalle.excluido %}
+                <span class="badge text-bg-secondary">Excluido</span>
+              {% else %}
+                <span class="badge text-bg-info">{{ detalle.bolsa.value }}</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">Detalle por mes y componentes</div>
+    <div class="card-body">
+      {% for detalle in resultado.meses if not detalle.excluido %}
+      <details class="border rounded p-3 mb-3" {% if loop.first %}open{% endif %}>
+        <summary class="fw-semibold">
+          {{ detalle.mes }} ·
+          Base {{ "{:,}".format(detalle.base_clp).replace(",", ".") }} ·
+          MAB {{ "{:,}".format(detalle.mab_clp).replace(",", ".") }} ·
+          Forecast {{ "{:,}".format(detalle.forecast_clp).replace(",", ".") }}
+        </summary>
+        <p class="mt-2 mb-2 small text-muted">
+          P {{ detalle.probabilidad_pct }} % · C {{ detalle.confiabilidad_pct }} % ·
+          {{ detalle.formula }}
+          {% if detalle.backlog_confirmado %}
+            · <span class="badge text-bg-success">Backlog confirmado (vista)</span>
+          {% endif %}
+        </p>
+        {% if detalle.advertencias %}
+          <div class="alert alert-warning py-2 small" role="alert">
+            {% for advertencia in detalle.advertencias %}<div>{{ advertencia }}</div>{% endfor %}
+          </div>
+        {% endif %}
+        <div class="table-responsive">
+          <table class="table table-sm mb-0">
+            <thead>
+              <tr>
+                <th scope="col">Perfil</th>
+                <th scope="col" class="text-end">HC</th>
+                <th scope="col" class="text-end">Dedicación</th>
+                <th scope="col" class="text-end">Tarifa/hora</th>
+                <th scope="col" class="text-end">Días activos</th>
+                <th scope="col" class="text-end">Fracción</th>
+                <th scope="col" class="text-end">Subtotal CLP</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for componente in detalle.componentes %}
+              <tr>
+                <td>{{ componente.nombre_perfil_id or "Perfil sin catálogo" }}</td>
+                <td class="text-end">{{ componente.hc }}</td>
+                <td class="text-end">{{ componente.dedicacion_pct }} %</td>
+                <td class="text-end">{{ "{:,}".format(componente.tarifa_hora_centavos / 100).replace(",", ".") }} CLP</td>
+                <td class="text-end">{{ componente.dias_activos }}</td>
+                <td class="text-end">{{ (componente.fraccion_activa * 100) | round(1) }} %</td>
+                <td class="text-end">{{ "{:,}".format(componente.subtotal_clp).replace(",", ".") }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </details>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% if serie %}
+  <div class="card mt-4">
+    <div class="card-header">Evolución del Forecast</div>
+    <div class="card-body">
+      <canvas id="grafico-forecast" height="120"
+              data-serie='{{ serie | tojson }}'
+              aria-label="Serie mensual de Forecast" role="img"></canvas>
+    </div>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}
