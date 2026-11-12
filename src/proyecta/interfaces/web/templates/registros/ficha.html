@@ -1,0 +1,236 @@
+{% extends 'base.html' %}
+{% block titulo %}{{ r.codigo }}{% endblock %}
+{% macro ocultos(datos) %}<input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="version" value="{{ datos.get('version', r.version) }}"><input type="hidden" name="volver" value="{{ volver }}">{% endmacro %}
+{% from '_formularios.html' import atributos, error as error_campo, resumen %}
+{% set mensajes = {'creado': 'Registro creado y auditado.', 'guardado': 'Cambios guardados y auditados.', 'estado': 'Estado actualizado.',
+  'flujo': 'Flujo actualizado.', 'probabilidad': 'Probabilidad actualizada desde el mes indicado.', 'confiabilidad': 'Confiabilidad actualizada desde el mes indicado.',
+  'perfil': 'Perfiles actualizados.', 'tarifa': 'Nueva tarifa registrada.', 'bitacora': 'Entrada agregada a la bitácora.'} %}
+{% block contenido %}
+<nav aria-label="Migas de pan" class="small mb-1"><ol class="breadcrumb mb-1"><li class="breadcrumb-item"><a href="{{ volver }}">Registros</a></li><li class="breadcrumb-item active" aria-current="page">{{ r.codigo }} · {{ r.servicio_proyecto }}</li></ol></nav>
+<div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+  <h1 class="h4 mb-0">{{ r.codigo }} · {{ r.servicio_proyecto }}</h1>
+  <span class="badge text-bg-secondary">{{ r.tipo|etiqueta }}</span>
+  <span class="badge text-bg-primary">{{ r.estado|etiqueta }}</span>
+  <span class="badge text-bg-light border">{{ r.flujo|etiqueta }}</span>
+  <span class="small text-secondary">versión {{ r.version }}</span>
+</div>
+{% if ok and mensajes.get(ok) %}<div class="alert alert-success py-2 small" role="status">{{ mensajes[ok] }}</div>{% endif %}
+{% if error %}<div class="alert alert-danger py-2 small" role="alert" tabindex="-1" data-error-summary><strong>No se guardó:</strong> {{ error }}
+{% set datos_error = formulario(request.url.path) %}{{ resumen(datos_error) }}
+{% if conflicto %}<p class="mb-1">Tu borrador sigue en el formulario. Revisa los datos vigentes en otra pestaña antes de volver a aplicar los cambios.</p><a href="/registros/{{ r.id }}" target="_blank" rel="noopener">Revisar versión vigente</a>
+<label class="d-block mt-2"><input type="checkbox" data-revisar-conflicto data-accion="{{ request.url.path }}" data-version="{{ r.version }}"> Revisé la versión vigente y quiero aplicar mi borrador.</label>{% endif %}</div>{% endif %}
+{% if not editable %}<div class="alert alert-info py-2 small">Vista de solo lectura para tu rol.</div>{% endif %}
+
+<div class="row g-3">
+<div class="col-12 col-xxl-7">
+  {# --- Cálculo explicado (US3 esc. 5, FR-047) --- #}
+  <div class="card card-body mb-3">
+    <h2 class="h6">Cálculo de 12 meses · MAB {{ resultado.total_mab()|pesos }} · Forecast {{ resultado.total_forecast()|pesos }}</h2>
+    <p class="small-help mb-2">{% if r.tipo.value == 'CONTINUIDAD' %}Backlog = monto mensual × fracción activa del contrato (sin monto: Base al 100 %).{% else %}Base = Σ HC × dedicación × tarifa × horas del mes × fracción activa · MAB = Base × P × C.{% endif %}
+      Forecast = Backlog contractual + MAB. Abre un mes para ver sus componentes.</p>
+    <div class="tabla-scroll" role="region" tabindex="0" aria-label="C?lculo mensual del registro"><table class="table table-sm small mb-0">
+      <thead><tr><th>Mes</th><th>Bolsa</th><th class="num">Base</th><th class="num">P</th><th class="num">C</th><th class="num">MAB</th><th class="num">Backlog</th><th class="num">Forecast</th><th class="num">HC</th></tr></thead>
+      <tbody>
+      {% for d in resultado.meses %}
+        <tr><td><details><summary>{{ d.mes|mes }}</summary>
+          {% if d.componentes %}<table class="table table-sm table-borderless small mb-0 mt-1"><thead><tr><th>Perfil</th><th class="num">HC</th><th class="num">Ded.</th><th class="num">Tarifa/h</th><th class="num">Días</th><th class="num">Subtotal</th></tr></thead>
+          <tbody>{% for c in d.componentes %}<tr><td>{{ cat(c.nombre_perfil_id) }}</td><td class="num">{{ c.hc }}</td><td class="num">{{ c.dedicacion_pct }} %</td>
+            <td class="num">{{ c.tarifa_hora_centavos|centavos }}</td><td class="num">{{ c.dias_activos }}/{{ d.mes.dias }}</td><td class="num">{{ c.subtotal_clp|pesos }}</td></tr>{% endfor %}</tbody></table>
+          {% else %}<span class="small-help">Sin perfiles activos en el mes.</span>{% endif %}
+          {% for a in d.advertencias %}<div class="small text-warning">{{ a }}</div>{% endfor %}
+        </details></td>
+          <td>{% if d.excluido %}<span class="text-secondary">Fuera del cálculo</span>{% else %}{{ d.bolsa|etiqueta }}{% if d.backlog_confirmado %} <span class="badge text-bg-success">confirmado</span>{% endif %}{% endif %}</td>
+          <td class="num">{{ d.base_clp|pesos }}</td><td class="num">{{ d.probabilidad_bp|pct }}</td><td class="num">{{ d.confiabilidad_bp|pct }}</td>
+          <td class="num">{{ d.mab_clp|pesos }}</td><td class="num">{{ d.backlog_clp|pesos }}</td><td class="num fw-semibold">{{ d.forecast_clp|pesos }}</td><td class="num">{{ d.hc }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+  </div>
+
+  {# --- Perfiles y tarifas (FR-011 a FR-016) --- #}
+  <div class="card card-body mb-3">
+    <h2 class="h6">Perfiles</h2>
+    {% for p, tarifas in perfiles %}
+    <div class="border rounded p-2 mb-2 small">
+      <div class="d-flex flex-wrap gap-3"><strong>{{ loop.index }}. {{ cat(p.nombre_perfil_id) }}</strong>
+        <span>{{ p.hc }} HC</span><span>{{ p.dedicacion_pct }} %</span><span>ingreso {{ p.fecha_ingreso|fecha }}</span><span>fin {{ p.fecha_fin|fecha }}</span>
+        <span>Tarifas: {% for t in tarifas %}{{ t.tarifa_hora_centavos|centavos }}/h desde {{ t.vigente_desde|fecha }}{% if not loop.last %} → {% endif %}{% endfor %}</span></div>
+      {% if editable and not r.es_terminal %}
+      <details class="mt-1"><summary>Editar perfil, cambiar tarifa o quitar</summary>
+        {% set datos = formulario('/registros/' ~ r.id ~ '/perfiles/' ~ p.id) %}
+        <form method="post" action="/registros/{{ r.id }}/perfiles/{{ p.id }}" class="row g-2 mt-1">{{ ocultos(datos) }}
+          <div class="col-4 col-md-2"><label class="form-label mb-0">HC<input class="form-control form-control-sm" type="number" name="hc" min="1" max="999" value="{{ datos.get('hc', p.hc) }}" {{ atributos(datos, 'hc') }}>{{ error_campo(datos, 'hc') }}</label></div>
+          <div class="col-4 col-md-2"><label class="form-label mb-0">Ded. %<input class="form-control form-control-sm" type="number" name="ded" min="1" max="100" value="{{ datos.get('ded', p.dedicacion_pct) }}" {{ atributos(datos, 'ded') }}>{{ error_campo(datos, 'ded') }}</label></div>
+          <div class="col-6 col-md-3"><label class="form-label mb-0">Ingreso<input class="form-control form-control-sm" type="date" name="ingreso" value="{{ datos.get('ingreso', p.fecha_ingreso) }}" {{ atributos(datos, 'ingreso') }}>{{ error_campo(datos, 'ingreso') }}</label></div>
+          <div class="col-6 col-md-3"><label class="form-label mb-0">Fin<input class="form-control form-control-sm" type="date" name="fin" value="{{ datos.get('fin', p.fecha_fin or '') }}" {{ atributos(datos, 'fin') }}>{{ error_campo(datos, 'fin') }}</label></div>
+          <div class="col-12 col-md-8"><label class="form-label mb-0 w-100">Motivo (obligatorio si cambia el HC)<input class="form-control form-control-sm" name="motivo" maxlength="500" value="{{ datos.get('motivo', '') }}" {{ atributos(datos, 'motivo') }}>{{ error_campo(datos, 'motivo') }}</label></div>
+          <div class="col-12 col-md-4 align-self-end"><button class="btn btn-sm btn-outline-primary">Guardar perfil</button></div>
+        </form>
+        {% set datos = formulario('/registros/' ~ r.id ~ '/perfiles/' ~ p.id ~ '/tarifa') %}
+        <form method="post" action="/registros/{{ r.id }}/perfiles/{{ p.id }}/tarifa" class="row g-2 mt-1">{{ ocultos(datos) }}
+          <div class="col-6 col-md-3"><label class="form-label mb-0">Nueva tarifa CLP/h<input class="form-control form-control-sm" name="tarifa" inputmode="decimal" required value="{{ datos.get('tarifa', '') }}" {{ atributos(datos, 'tarifa') }}>{{ error_campo(datos, 'tarifa') }}</label></div>
+          <div class="col-6 col-md-3"><label class="form-label mb-0">Rige desde<input class="form-control form-control-sm" type="date" name="desde" required value="{{ datos.get('desde', '') }}" {{ atributos(datos, 'desde') }}>{{ error_campo(datos, 'desde') }}</label></div>
+          <div class="col-12 col-md-4"><label class="form-label mb-0 w-100">Motivo *<input class="form-control form-control-sm" name="motivo" maxlength="500" required value="{{ datos.get('motivo', '') }}" {{ atributos(datos, 'motivo') }}>{{ error_campo(datos, 'motivo') }}</label></div>
+          <div class="col-12 col-md-2 align-self-end"><button class="btn btn-sm btn-outline-primary">Registrar</button></div>
+        </form>
+        {% set datos = formulario('/registros/' ~ r.id ~ '/perfiles/' ~ p.id ~ '/quitar') %}
+        <form method="post" action="/registros/{{ r.id }}/perfiles/{{ p.id }}/quitar" class="row g-2 mt-1" data-confirmar="¿Quitar este perfil del registro?">{{ ocultos(datos) }}
+          <div class="col-12 col-md-8"><label class="form-label mb-0 w-100">Motivo para quitar *<input class="form-control form-control-sm" name="motivo" maxlength="500" required value="{{ datos.get('motivo', '') }}" {{ atributos(datos, 'motivo') }}>{{ error_campo(datos, 'motivo') }}</label></div>
+          <div class="col-12 col-md-4 align-self-end"><button class="btn btn-sm btn-outline-danger">Quitar perfil</button></div>
+        </form>
+      </details>
+      {% endif %}
+    </div>
+    {% else %}<p class="small text-secondary">Sin perfiles: el registro no suma Base hasta tener al menos uno.</p>{% endfor %}
+    {% if editable and not r.es_terminal %}
+    <details><summary class="small">Agregar perfil</summary>
+      {% set datos = formulario('/registros/' ~ r.id ~ '/perfiles') %}
+      <form method="post" action="/registros/{{ r.id }}/perfiles" class="row g-2 mt-1 small">{{ ocultos(datos) }}
+        <div class="col-12 col-md-3"><label class="form-label mb-0 w-100">Perfil<select class="form-select form-select-sm" name="p1_nombre" {{ atributos(datos, 'p1_nombre') }}><option value="" {% if datos.get('p1_nombre', '')|string == ('')|string %}selected{% endif %}>—</option>
+          {% for c in nombres_perfil %}<option value="{{ c.id }}" {% if datos.get('p1_nombre', '')|string == (c.id)|string %}selected{% endif %}>{{ c.etiqueta }}</option>{% endfor %}</select>{{ error_campo(datos, 'p1_nombre') }}</label></div>
+        <div class="col-4 col-md-1"><label class="form-label mb-0">HC<input class="form-control form-control-sm" type="number" name="p1_hc" min="1" max="999" required value="{{ datos.get('p1_hc', '') }}" {{ atributos(datos, 'p1_hc') }}>{{ error_campo(datos, 'p1_hc') }}</label></div>
+        <div class="col-4 col-md-2"><label class="form-label mb-0">Ded. %<input class="form-control form-control-sm" type="number" name="p1_ded" min="1" max="100" value="{{ datos.get('p1_ded', '100') }}" {{ atributos(datos, 'p1_ded') }}>{{ error_campo(datos, 'p1_ded') }}</label></div>
+        <div class="col-4 col-md-2"><label class="form-label mb-0">Tarifa CLP/h<input class="form-control form-control-sm" name="p1_tarifa" inputmode="decimal" required value="{{ datos.get('p1_tarifa', '') }}" {{ atributos(datos, 'p1_tarifa') }}>{{ error_campo(datos, 'p1_tarifa') }}</label></div>
+        <div class="col-6 col-md-2"><label class="form-label mb-0">Ingreso<input class="form-control form-control-sm" type="date" name="p1_ingreso" required value="{{ datos.get('p1_ingreso', '') }}" {{ atributos(datos, 'p1_ingreso') }}>{{ error_campo(datos, 'p1_ingreso') }}</label></div>
+        <div class="col-6 col-md-2"><label class="form-label mb-0">Fin<input class="form-control form-control-sm" type="date" name="p1_fin" value="{{ datos.get('p1_fin', '') }}" {{ atributos(datos, 'p1_fin') }}>{{ error_campo(datos, 'p1_fin') }}</label></div>
+        <div class="col-12"><button class="btn btn-sm btn-outline-primary">Agregar perfil</button></div>
+      </form>
+    </details>
+    {% endif %}
+  </div>
+
+  {% if contrato %}
+  <div class="card card-body mb-3 small">
+    <h2 class="h6">Ficha de contrato</h2>
+    <dl class="row mb-0"><dt class="col-5 col-md-3">Código</dt><dd class="col-7 col-md-3">{{ contrato.codigo_contrato }}</dd>
+      <dt class="col-5 col-md-3">Monto mensual</dt><dd class="col-7 col-md-3">{{ contrato.monto_mensual_clp|pesos if contrato.monto_mensual_clp else 'Desde los perfiles' }}</dd>
+      <dt class="col-5 col-md-3">Inicio</dt><dd class="col-7 col-md-3">{{ contrato.fecha_inicio|fecha }}</dd>
+      <dt class="col-5 col-md-3">Fin</dt><dd class="col-7 col-md-3">{{ contrato.fecha_fin|fecha if contrato.fecha_fin else 'Indefinido' }}</dd>
+      <dt class="col-5 col-md-3">HC comprometido</dt><dd class="col-7 col-md-3">{{ contrato.hc_comprometido }}</dd></dl>
+  </div>
+  {% endif %}
+
+  {# --- Auditoría (US8) --- #}
+  <div class="card card-body mb-3">
+    <h2 class="h6">Auditoría ({{ eventos|length }} eventos) <span class="small-help">· solo lectura: no se edita ni se borra</span></h2>
+    <div class="tabla-scroll" role="region" tabindex="0" aria-label="Auditor?a del registro"><table class="table table-sm small mb-0">
+      <thead><tr><th>Fecha</th><th>Usuario</th><th>Campo</th><th>Antes</th><th>Después</th><th>Motivo</th><th class="num">Δ Forecast 12 m</th></tr></thead>
+      <tbody>{% for e in eventos %}<tr><td class="text-nowrap">{{ e.fecha_hora|local }}</td><td>{{ nombre_usuario(e.usuario_id) }}</td><td>{{ e.campo }}</td>
+        <td>{{ e.valor_anterior|valor(e.campo) }}</td><td>{{ e.valor_nuevo|valor(e.campo) }}</td>
+        <td>{{ e.motivo or '—' }}{% if e.fecha_efectiva %} <span class="small-help">(desde {{ e.fecha_efectiva|fecha }})</span>{% endif %}</td>
+        <td class="num">{% if e.forecast_despues is not none %}{{ (e.forecast_despues - (e.forecast_antes or 0))|pesos }}{% endif %}</td></tr>
+      {% else %}<tr><td colspan="7" class="text-secondary">Sin eventos en esta sesión del servidor (los datos de la semilla no tienen historial).</td></tr>{% endfor %}</tbody>
+    </table></div>
+  </div>
+</div>
+
+<div class="col-12 col-xxl-5">
+  {# --- Estado, flujo, P y C (US2) --- #}
+  {% if editable %}
+  <div class="card card-body mb-3 small">
+    <h2 class="h6">Estado y flujo</h2>
+    {% if destinos %}
+    {% set datos = formulario('/registros/' ~ r.id ~ '/estado') %}
+    <form method="post" action="/registros/{{ r.id }}/estado" class="row g-2 mb-3">{{ ocultos(datos) }}
+      <div class="col-6"><label class="form-label mb-0 w-100">Pasar a<select class="form-select form-select-sm" name="destino" required {{ atributos(datos, 'destino') }}>
+        {% for d in destinos %}<option value="{{ d.value }}"  {% if datos.get('destino', '')|string == (d.value)|string %}selected{% endif %}>{{ d|etiqueta }}</option>{% endfor %}</select>{{ error_campo(datos, 'destino') }}</label></div>
+      <div class="col-6"><label class="form-label mb-0 w-100">Fecha efectiva<input class="form-control form-control-sm" type="date" name="fecha" value="{{ datos.get('fecha', hoy) }}" {{ atributos(datos, 'fecha') }}>{{ error_campo(datos, 'fecha') }}</label></div>
+      <div class="col-12"><label class="form-label mb-0 w-100">Motivo de cierre o cancelación (solo al cerrar o cancelar)
+        <select class="form-select form-select-sm" name="motivo_cierre" {{ atributos(datos, 'motivo_cierre') }}><option value="" {% if datos.get('motivo_cierre', '')|string == ('')|string %}selected{% endif %}>—</option>
+        {% for m in motivos_cierre %}<option value="{{ m.value }}" {% if datos.get('motivo_cierre', '')|string == (m.value)|string %}selected{% endif %}>{{ m|etiqueta }}</option>{% endfor %}</select>{{ error_campo(datos, 'motivo_cierre') }}</label></div>
+      <div class="col-12"><label class="form-label mb-0 w-100">Motivo *<input class="form-control form-control-sm" name="motivo" maxlength="500" required value="{{ datos.get('motivo', '') }}" {{ atributos(datos, 'motivo') }}>{{ error_campo(datos, 'motivo') }}</label></div>
+      <div class="col-12"><button class="btn btn-sm btn-primary">Cambiar estado</button>
+        <span class="small-help">Adjudicar: tipo Demanda y P 100 %. StandBy guarda el estado previo y sale del cálculo.</span></div>
+    </form>
+    {% else %}<p class="text-secondary">No hay transiciones disponibles para tu rol.</p>{% endif %}
+    {% if not r.es_terminal and r.estado.value != 'STANDBY' and r.tipo.value != 'CONTINUIDAD' %}
+    {% set datos = formulario('/registros/' ~ r.id ~ '/flujo') %}
+    <form method="post" action="/registros/{{ r.id }}/flujo" class="row g-2">{{ ocultos(datos) }}
+      <div class="col-6"><label class="form-label mb-0 w-100">Flujo<select class="form-select form-select-sm" name="flujo" {{ atributos(datos, 'flujo') }}>
+        {% for f in flujos_tipo %}<option value="{{ f.value }}"  {% if datos.get('flujo', r.flujo.value)|string == (f.value)|string %}selected{% endif %}>{{ f|etiqueta }}</option>{% endfor %}</select>{{ error_campo(datos, 'flujo') }}</label></div>
+      <div class="col-6"><label class="form-label mb-0 w-100">Fecha efectiva<input class="form-control form-control-sm" type="date" name="fecha" value="{{ datos.get('fecha', hoy) }}" {{ atributos(datos, 'fecha') }}>{{ error_campo(datos, 'fecha') }}</label></div>
+      <div class="col-12"><label class="form-label mb-0 w-100">Motivo *<input class="form-control form-control-sm" name="motivo" maxlength="500" required value="{{ datos.get('motivo', '') }}" {{ atributos(datos, 'motivo') }}>{{ error_campo(datos, 'motivo') }}</label></div>
+      <div class="col-12"><button class="btn btn-sm btn-outline-primary">Cambiar flujo</button>
+        {% if r.estado.value == 'PENDIENTE' %}<span class="small-help">En Pendiente, el flujo sugiere la probabilidad.</span>{% endif %}</div>
+    </form>
+    {% endif %}
+  </div>
+
+  <div class="card card-body mb-3 small">
+    <h2 class="h6">Probabilidad {{ r.probabilidad_bp|pct }} · Confiabilidad {{ r.confiabilidad_bp|pct }}</h2>
+    {% if p_fija %}<p class="text-secondary mb-2">La probabilidad está fija en 100 % en este estado (H-01).</p>
+    {% elif r.estado.value == 'PENDIENTE' %}
+    {% set datos = formulario('/registros/' ~ r.id ~ '/probabilidad') %}
+    <form method="post" action="/registros/{{ r.id }}/probabilidad" class="row g-2 mb-3">{{ ocultos(datos) }}
+      <div class="col-4"><label class="form-label mb-0 w-100">P<select class="form-select form-select-sm" name="valor_bp" {{ atributos(datos, 'valor_bp') }}>
+        {% for v in probabilidades %}<option value="{{ v }}"  {% if datos.get('valor_bp', r.probabilidad_bp)|string == (v)|string %}selected{% endif %}>{{ v|pct }}</option>{% endfor %}</select>{{ error_campo(datos, 'valor_bp') }}</label></div>
+      <div class="col-8"><label class="form-label mb-0 w-100">Rige desde<input class="form-control form-control-sm" type="date" name="desde" value="{{ datos.get('desde', hoy) }}" {{ atributos(datos, 'desde') }}>{{ error_campo(datos, 'desde') }}</label></div>
+      <div class="col-12"><label class="form-label mb-0 w-100">Motivo *<input class="form-control form-control-sm" name="motivo" maxlength="500" required value="{{ datos.get('motivo', '') }}" {{ atributos(datos, 'motivo') }}>{{ error_campo(datos, 'motivo') }}</label></div>
+      <div class="col-12"><button class="btn btn-sm btn-outline-primary">Cambiar probabilidad</button></div>
+    </form>{% endif %}
+    {% if rol == 'OPERACIONES' %}
+    {% set datos = formulario('/registros/' ~ r.id ~ '/confiabilidad') %}
+    <form method="post" action="/registros/{{ r.id }}/confiabilidad" class="row g-2">{{ ocultos(datos) }}
+      <div class="col-4"><label class="form-label mb-0 w-100">C %<input class="form-control form-control-sm" name="valor" inputmode="decimal" value="{{ datos.get('valor', '%g'|format(r.confiabilidad_bp / 100)) }}" {{ atributos(datos, 'valor') }}>{{ error_campo(datos, 'valor') }}</label></div>
+      <div class="col-8"><label class="form-label mb-0 w-100">Rige desde<input class="form-control form-control-sm" type="date" name="desde" value="{{ datos.get('desde', hoy) }}" {{ atributos(datos, 'desde') }}>{{ error_campo(datos, 'desde') }}</label></div>
+      <div class="col-12"><label class="form-label mb-0 w-100">Motivo *<input class="form-control form-control-sm" name="motivo" maxlength="500" required value="{{ datos.get('motivo', '') }}" {{ atributos(datos, 'motivo') }}>{{ error_campo(datos, 'motivo') }}</label></div>
+      <div class="col-12"><button class="btn btn-sm btn-outline-primary">Cambiar confiabilidad</button> <span class="small-help">Solo Operaciones.</span></div>
+    </form>
+    {% endif %}
+    {% if vigencias %}<h3 class="h6 small fw-semibold mt-3">Historia mensual</h3><ul class="mb-0">{% for v in vigencias %}
+      <li>{{ 'P' if v.campo.value == 'PROBABILIDAD' else 'C' }} {{ v.valor_bp|pct }} desde {{ v.vigente_desde|mes }} · {{ v.motivo }}</li>{% endfor %}</ul>{% endif %}
+  </div>
+  {% endif %}
+
+  {# --- Datos del registro (US1) --- #}
+  <div class="card card-body mb-3 small">
+    <h2 class="h6">Datos del registro</h2>
+
+    {% set datos = formulario('/registros/' ~ r.id ~ '/editar') %}
+    <form method="post" action="/registros/{{ r.id }}/editar" class="row g-2">{{ ocultos(datos) }}
+      <fieldset class="row g-2 m-0 p-0" {% if not editable or r.es_terminal %}disabled{% endif %}>
+      <div class="col-12"><label class="form-label mb-0 w-100">Servicio o proyecto *<input class="form-control form-control-sm" name="servicio_proyecto" maxlength="200" required value="{{ datos.get('servicio_proyecto', r.servicio_proyecto) }}" {{ atributos(datos, 'servicio_proyecto') }}>{{ error_campo(datos, 'servicio_proyecto') }}</label></div>
+      {% for campo, etiqueta_campo, opciones in [('cliente_id', 'Cliente', clientes), ('sector_id', 'Sector', sectores), ('manager_id', 'Manager', managers)] %}
+      <div class="col-12 col-md-4"><label class="form-label mb-0 w-100">{{ etiqueta_campo }}<select class="form-select form-select-sm" name="{{ campo }}" {{ atributos(datos, campo) }}>
+        {% for c in opciones %}<option value="{{ c.id }}"  {% if datos.get(campo, r[campo])|string == (c.id)|string %}selected{% endif %}>{{ c.etiqueta }}</option>{% endfor %}</select>{{ error_campo(datos, campo) }}</label></div>
+      {% endfor %}
+      <div class="col-6 col-md-4"><label class="form-label mb-0 w-100">Modalidad<select class="form-select form-select-sm" name="modalidad" {{ atributos(datos, 'modalidad') }}>
+        {% for m in modalidades %}<option value="{{ m.value }}"  {% if datos.get('modalidad', r.modalidad.value)|string == (m.value)|string %}selected{% endif %}>{{ m|etiqueta }}</option>{% endfor %}</select>{{ error_campo(datos, 'modalidad') }}</label></div>
+      <div class="col-6 col-md-4"><label class="form-label mb-0 w-100">Cuenta<input class="form-control form-control-sm" name="cuenta" maxlength="120" value="{{ datos.get('cuenta', r.cuenta) }}" {{ atributos(datos, 'cuenta') }}>{{ error_campo(datos, 'cuenta') }}</label></div>
+      <div class="col-6 col-md-4"><label class="form-label mb-0 w-100">ID externo (CRM)<input class="form-control form-control-sm" name="id_externo" maxlength="60" value="{{ datos.get('id_externo', r.id_externo or '') }}" {{ atributos(datos, 'id_externo') }}>{{ error_campo(datos, 'id_externo') }}</label></div>
+      <div class="col-6 col-md-4"><label class="form-label mb-0 w-100">Fecha de ingreso<input class="form-control form-control-sm" type="date" name="fecha_ingreso" value="{{ datos.get('fecha_ingreso', r.fecha_ingreso or '') }}" {{ atributos(datos, 'fecha_ingreso') }}>{{ error_campo(datos, 'fecha_ingreso') }}</label></div>
+      <div class="col-6 col-md-4"><label class="form-label mb-0 w-100">Fin de vigencia<input class="form-control form-control-sm" type="date" name="fecha_fin_vigencia" value="{{ datos.get('fecha_fin_vigencia', r.fecha_fin_vigencia or '') }}" {{ atributos(datos, 'fecha_fin_vigencia') }}>{{ error_campo(datos, 'fecha_fin_vigencia') }}</label></div>
+      <div class="col-12 d-flex flex-wrap gap-3">
+        {% for campo, etiqueta_campo in [('studio', 'Studio'), ('en_staffing', 'En Staffing'), ('en_invoicing', 'En Invoicing')] %}
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="{{ campo }}" value="1" id="chk-{{ campo }}" {% if (datos.get(campo) == '1' if datos._enviado else r[campo]) %}checked{% endif %}>
+          <label class="form-check-label" for="chk-{{ campo }}">{{ etiqueta_campo }}</label></div>{% endfor %}</div>
+      <div class="col-12"><label class="form-label mb-0 w-100">Observaciones<textarea class="form-control form-control-sm" name="observaciones" rows="2" maxlength="2000" {{ atributos(datos, 'observaciones') }}>{{ datos.get('observaciones', r.observaciones or '') }}</textarea>{{ error_campo(datos, 'observaciones') }}</label></div>
+      <div class="col-12 small-help">Owner: {{ nombre_usuario(r.owner_id) }} · creado {{ r.fecha_creacion|fecha }} · adjudicación {{ r.fecha_adjudicacion|fecha }} · cierre {{ r.fecha_cierre|fecha }} {{ r.motivo_cierre|etiqueta if r.motivo_cierre else '' }}</div>
+      {% if editable and not r.es_terminal %}<div class="col-12"><button class="btn btn-sm btn-primary">Guardar datos</button></div>{% endif %}
+      </fieldset>
+    </form>
+  </div>
+
+  {# --- Bitácora (US1 esc. 5): solo inserción --- #}
+  <div class="card card-body mb-3 small">
+    <h2 class="h6">Bitácora</h2>
+    {% if editable %}
+    {% set datos = formulario('/registros/' ~ r.id ~ '/bitacora') %}
+    <form method="post" action="/registros/{{ r.id }}/bitacora" class="row g-2 mb-2">{{ ocultos(datos) }}
+      <div class="col-5"><label class="form-label mb-0 w-100">Tipo<select class="form-select form-select-sm" name="tipo" {{ atributos(datos, 'tipo') }}>
+        {% for t in tipos_bitacora %}<option value="{{ t.value }}" {% if datos.get('tipo', '')|string == (t.value)|string %}selected{% endif %}>{{ t|etiqueta }}</option>{% endfor %}</select>{{ error_campo(datos, 'tipo') }}</label></div>
+      <div class="col-7"><label class="form-label mb-0 w-100">Fecha compromiso<input class="form-control form-control-sm" type="date" name="fecha_compromiso" value="{{ datos.get('fecha_compromiso', '') }}" {{ atributos(datos, 'fecha_compromiso') }}>{{ error_campo(datos, 'fecha_compromiso') }}</label></div>
+      <div class="col-12"><label class="form-label mb-0 w-100">Entrada *<textarea class="form-control form-control-sm" name="contenido" rows="2" maxlength="2000" required {{ atributos(datos, 'contenido') }}>{{ datos.get('contenido', '') }}</textarea>{{ error_campo(datos, 'contenido') }}</label></div>
+      <div class="col-12"><label class="form-label mb-0 w-100">Próxima acción<input class="form-control form-control-sm" name="proxima_accion" maxlength="300" value="{{ datos.get('proxima_accion', '') }}" {{ atributos(datos, 'proxima_accion') }}>{{ error_campo(datos, 'proxima_accion') }}</label></div>
+      <div class="col-12"><button class="btn btn-sm btn-outline-primary">Agregar a la bitácora</button>
+        <span class="small-help">Las entradas no se editan ni se borran; una corrección es una entrada nueva.</span></div>
+    </form>
+    {% endif %}
+    <ul class="list-unstyled mb-0">{% for b in bitacora %}
+      <li class="border-top pt-1 mt-1"><span class="text-secondary">{{ b.creado_en|local }} · {{ nombre_usuario(b.autor_id) }} · {{ b.tipo_evento|etiqueta }}</span><br>{{ b.contenido }}
+        {% if b.proxima_accion %}<br><em>Próxima acción:</em> {{ b.proxima_accion }}{% if b.fecha_compromiso %} ({{ b.fecha_compromiso|fecha }}){% endif %}{% endif %}</li>
+    {% else %}<li class="text-secondary">Sin entradas.</li>{% endfor %}</ul>
+  </div>
+</div>
+</div>
+{% endblock %}

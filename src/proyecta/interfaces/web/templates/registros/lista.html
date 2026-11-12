@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block titulo %}Registros{% endblock %}
+{% block contenido %}
+<div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+  <h1 class="h4 mb-0 me-auto">Registros {% if filtros.confirmado %}<span class="badge text-bg-success">Backlog confirmado</span>{% endif %}</h1>
+  {% if rol != 'EJECUTIVO' %}<button class="btn btn-sm btn-primary" type="button" aria-haspopup="dialog"
+    aria-controls="alta-dialog" data-dialog-open>Nuevo registro</button>{% endif %}
+</div>
+{% set accion = '/registros' %}{% include '_filtros.html' %}
+<div class="card card-body">
+  <p class="small mb-2" aria-live="polite"><strong>{{ kpi.registros }}</strong> registro(s) visibles ·
+    Forecast {{ kpi.forecast|pesos }} · MAB {{ kpi.mab|pesos }} · Backlog contractual {{ kpi.backlog|pesos }}
+    <span class="text-secondary">({{ filtros.meses }} meses desde {{ filtros.periodo|mes }}; los totales suman las filas)</span></p>
+  <div class="tabla-scroll" role="region" tabindex="0" aria-label="Listado de registros"><table class="table table-sm table-hover small align-middle mb-0">
+    <thead><tr><th>Código</th><th>Servicio · Cliente</th><th>Sector</th><th>Owner</th><th>Tipo</th><th>Estado · Flujo</th>
+      <th class="num">P / C</th><th class="num">Ingreso</th><th class="num">MAB</th><th class="num">Backlog</th><th class="num">Forecast</th></tr></thead>
+    <tbody>
+    {% for r, c in filas %}
+      <tr><td class="text-nowrap"><a href="{{ enlace_registro(r.id) }}">{{ r.codigo }}</a></td>
+        <td>{{ r.servicio_proyecto }} · {{ cat(r.cliente_id) }}</td><td>{{ cat(r.sector_id) }}</td><td>{{ nombre_usuario(r.owner_id) }}</td>
+        <td>{{ r.tipo|etiqueta }}</td><td>{{ r.estado|etiqueta }} · {{ r.flujo|etiqueta }}</td>
+        <td class="num">{{ r.probabilidad_bp|pct }} / {{ r.confiabilidad_bp|pct }}</td><td class="num">{{ r.fecha_ingreso|fecha }}</td>
+        <td class="num">{{ c.mab|pesos }}</td><td class="num">{{ c.backlog|pesos }}</td><td class="num fw-semibold">{{ c.forecast|pesos }}</td></tr>
+    {% else %}<tr><td colspan="11" class="text-secondary">No hay registros con estos filtros.</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% if rol != 'EJECUTIVO' %}{% include 'registros/nuevo.html' %}{% endif %}
+{% endblock %}

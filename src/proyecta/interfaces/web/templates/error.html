@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block titulo %}Error {{ codigo }}{% endblock %}
+{% block contenido %}
+<div class="alert alert-warning" role="alert">
+  <h1 class="h5">{% if codigo == 403 %}Acceso no permitido{% elif codigo == 404 %}No encontrado{% else %}No se pudo completar la acción{% endif %}</h1>
+  <p class="mb-2">{{ detalle }}</p>
+  <a href="/registros?activos=1" class="alert-link me-3">Ir a Registros</a>
+  <a href="/" class="alert-link">Volver al dashboard</a>
+</div>
+{% endblock %}

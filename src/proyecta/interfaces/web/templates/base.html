@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Proyecta{% endblock %} · Gestión de la Demanda</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="alternate icon" href="/static/favicon.ico" sizes="16x16 32x32">
+  <script src="/static/js/tema.js"></script>
+  <link rel="stylesheet" href="/static/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/css/app.css">
+  <script src="/static/vendor/htmx.min.js" defer></script>
+  <script src="/static/js/app.js" defer></script>
+  {% block cabeza %}{% endblock %}
+</head>
+<body class="bg-body-tertiary" {% if csrf %}hx-headers='{"X-CSRF-Token": "{{ csrf }}"}' data-csrf="{{ csrf }}"{% endif %}>
+  <a class="visually-hidden-focusable" href="#principal">Saltar al contenido</a>
+  <nav class="navbar navbar-expand-md navbar-dark bg-proyecta mb-3" aria-label="Navegación principal">
+    <div class="container-fluid">
+      <a class="navbar-brand fw-semibold" href="/">Proyecta</a>
+      {% if usuario %}
+      <button class="navbar-toggler" type="button" data-toggle-target="#menu" aria-controls="menu" aria-expanded="false" aria-label="Abrir menú">
+        <span class="navbar-toggler-icon"></span></button>
+      <div class="collapse navbar-collapse" id="menu">
+        <ul class="navbar-nav me-auto">
+          {% for clave, href, nombre in [('dashboard', '/', 'Dashboard'), ('registros', '/registros?activos=1', 'Registros'), ('parametros', '/parametros', 'Parámetros MAB'), ('auditoria', '/auditoria', 'Auditoría')] %}
+          <li class="nav-item"><a class="nav-link{% if seccion == clave %} active{% endif %}" href="{{ href }}"{% if seccion == clave %} aria-current="{{ 'location' if subseccion else 'page' }}"{% endif %}>{{ nombre }}</a></li>
+          {% endfor %}
+        </ul>
+        <span class="navbar-text small me-3">{{ usuario.nombre }} · {{ rol|etiqueta }}</span>
+        <form method="post" action="/logout" class="d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}">
+          <button class="btn btn-sm btn-outline-light">Salir</button>
+        </form>
+      </div>
+      {% endif %}
+      <div class="tema-selector ms-3">
+        <label class="small text-white" for="tema">Tema</label>
+        <select class="form-select form-select-sm" id="tema" data-tema aria-label="Tema de la interfaz">
+          <option value="sistema">Sistema</option><option value="light">Claro</option><option value="dark">Oscuro</option>
+        </select>
+      </div>
+    </div>
+  </nav>
+  <main id="principal" class="container-fluid px-3 px-lg-4 pb-5">
+    <p class="small text-secondary mb-2">Datos 100 % sintéticos · montos en CLP · versión MVP (Entrega 2)</p>
+    {% block contenido %}{% endblock %}
+  </main>
+</body>
+</html>
