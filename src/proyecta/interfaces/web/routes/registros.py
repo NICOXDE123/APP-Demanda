@@ -132,7 +132,8 @@ async def vista_previa(request: Request):
     estado = {Tipo.OPORTUNIDAD: Estado.PENDIENTE, Tipo.DEMANDA: Estado.ADJUDICADA}.get(tipo, Estado.EN_CURSO)
     borrador = Registro(codigo="", tipo=tipo, estado=estado,
                         probabilidad_bp=1_000 if tipo is Tipo.OPORTUNIDAD else 10_000,
-                        confiabilidad_bp=10_000 if tipo is Tipo.CONTINUIDAD else 9_000)
+                        confiabilidad_bp=10_000 if tipo is Tipo.CONTINUIDAD
+                        else request.app.state.registros.confiabilidad_inicial_bp())
     try:
         nuevos = [(Perfil(registro_id=borrador.id, hc=p["hc"], dedicacion_pct=p["dedicacion_pct"],
                           fecha_ingreso=p["fecha_ingreso"], fecha_fin=p["fecha_fin"]), p) for p in perfiles]

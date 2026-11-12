@@ -136,6 +136,15 @@ class ServicioRegistros:
     def perfiles_con_ingreso(self, registro_id: UUID) -> int:
         return sum(1 for p in self.almacen.perfiles.listar_por_registro(registro_id) if p.hc >= 1 and p.fecha_ingreso)
 
+    def confiabilidad_inicial_bp(self, desde: date | None = None) -> int:
+        parametro = self.almacen.parametros.vigente("confiabilidad_inicial", desde or date.today())
+        if parametro is None:
+            return CONFIABILIDAD_INICIAL_BP
+        valor = parametro.valor_entero()
+        if not 0 <= valor <= 100:
+            raise ErrorRango("CONFIGURACION_INVALIDA", "La confiabilidad inicial debe estar entre 0 % y 100 %.")
+        return valor * 100
+
     # -- US1: crear y editar ----------------------------------------------
     def crear(self, usuario: Usuario, datos: dict[str, Any], perfiles: list[dict[str, Any]],
               contrato: dict[str, Any] | None = None) -> Registro:
@@ -171,17 +180,18 @@ class ServicioRegistros:
             fecha_creacion=hoy, fecha_ingreso=datos.get("fecha_ingreso"),
             fecha_fin_vigencia=datos.get("fecha_fin_vigencia"), creado_por=usuario.id, actualizado_por=usuario.id,
         )
+        if tipo is Tipo.CONTINUIDAD:  # F3: en curso, flujo 6, P y C 100 %
+            registro.estado, registro.flujo = Estado.EN_CURSO, Flujo.PERFILES_SELECCIONADOS
+            registro.probabilidad_bp = registro.confiabilidad_bp = BP_TOTAL
+        else:
+            registro.confiabilidad_bp = self.confiabilidad_inicial_bp(hoy)
+
         if tipo is Tipo.DEMANDA:  # F2: nace adjudicada, flujo 3 a 5, P 100 %
             flujo = Flujo(datos.get("flujo") or Flujo.PROPUESTA_ENTREGADA)
             if not 3 <= flujo.orden <= 5:
                 raise ErrorValidacion("VALIDACION", "Una demanda directa nace en el flujo 3, 4 o 5.")
             registro.estado, registro.flujo, registro.probabilidad_bp = Estado.ADJUDICADA, flujo, BP_TOTAL
             registro.fecha_adjudicacion = datos.get("fecha_adjudicacion") or hoy
-        elif tipo is Tipo.CONTINUIDAD:  # F3: en curso, flujo 6, P y C 100 %
-            registro.estado, registro.flujo = Estado.EN_CURSO, Flujo.PERFILES_SELECCIONADOS
-            registro.probabilidad_bp = registro.confiabilidad_bp = BP_TOTAL
-        else:  # F1: Pendiente, flujo 1, P 10 %, C 90 %
-            registro.confiabilidad_bp = CONFIABILIDAD_INICIAL_BP
 
         nuevos = [self._perfil(registro, p, orden) for orden, p in enumerate(perfiles_ok, 1)]
         ficha = None
@@ -434,6 +444,27 @@ class ServicioRegistros:
         )
         return parametro
 
+    def cambiar_confiabilidad_inicial(self, usuario: Usuario, valor_pct: int, desde: date,
+                                      motivo: str) -> Parametro:
+        if usuario.rol is not Rol.OPERACIONES:
+            raise PermisoDenegado(message="Solo Operaciones cambia los parámetros (FR-037).", accion="parametros")
+        motivo = _motivo(motivo)
+        if not 0 <= valor_pct <= 100:
+            raise ErrorRango("RANGO_INVALIDO", "La confiabilidad inicial debe estar entre 0 % y 100 %.")
+        desde = Period.desde_fecha(desde).inicio
+        vigente = self.almacen.parametros.vigente("confiabilidad_inicial", desde)
+        antes = self.calculo.ejecutar()
+        parametro = self.almacen.parametros.guardar(Parametro(clave="confiabilidad_inicial", valor=valor_pct,
+                                                              tipo=TipoParametro.ENTERO, vigente_desde=desde,
+                                                              usuario_id=usuario.id))
+        despues = self.calculo.ejecutar()
+        self.auditoria.registrar(
+            _cambio_parametro(parametro, usuario, vigente.valor if vigente else None, motivo),
+            impacto=ImpactoCalculo(antes.totales.mab_clp, despues.totales.mab_clp,
+                                   antes.totales.forecast_clp, despues.totales.forecast_clp),
+        )
+        return parametro
+
 
 def _creacion(registro: Registro, usuario: Usuario, perfiles: int, motivo: str | None):
     return CambioAuditado(
@@ -449,6 +480,6 @@ def _creacion(registro: Registro, usuario: Usuario, perfiles: int, motivo: str |
 def _cambio_parametro(parametro: Parametro, usuario: Usuario, anterior, motivo: str):
     return CambioAuditado(
         entidad=EntidadAuditoria.PARAMETRO.value, entidad_id=parametro.id, registro_id=parametro.id,
-        campo="horas_mensuales", valor_anterior=anterior, valor_nuevo=parametro.valor,
+        campo=parametro.clave, valor_anterior=anterior, valor_nuevo=parametro.valor,
         usuario_id=usuario.id, motivo=motivo, fecha_efectiva=parametro.vigente_desde,
     )

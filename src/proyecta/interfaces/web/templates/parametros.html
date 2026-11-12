@@ -3,12 +3,12 @@
 {% block contenido %}
 <h1 class="h4">Mantenedor de parámetros de la MAB</h1>
 <p class="small text-secondary">MAB = Base × probabilidad × confiabilidad, con Base = Σ HC × dedicación × tarifa × <strong>horas del mes</strong> × fracción activa.
-  Las horas tienen vigencia mensual: un cambio rige desde su mes y no reescribe los anteriores (FR-037).
-  La probabilidad y la confiabilidad se ajustan por registro, también con vigencia mensual.</p>
-{% if ok %}<div class="alert alert-success py-2 small" role="status">Parámetro guardado y auditado con su impacto en el Forecast.</div>{% endif %}
+  Las horas tienen vigencia mensual. La confiabilidad inicial se aplica a nuevas oportunidades y demandas desde el mes indicado; los registros existentes no cambian.
+  Continuidades mantienen confiabilidad de 100 %. Operaciones también puede ajustar la confiabilidad de cada registro desde su ficha. Los cambios requieren motivo y quedan disponibles en Auditoría.</p>
+{% if ok %}<div class="alert alert-success py-2 small" role="status">Parámetro guardado y auditado con sus valores e impacto en el Forecast.</div>{% endif %}
 {% if error %}<div class="alert alert-danger py-2 small" role="alert"><strong>No se guardó:</strong> {{ error }}</div>{% endif %}
 <div class="row g-3">
-  <div class="col-12 col-lg-5"><div class="card card-body small">
+  <div class="col-12 col-lg-5"><div class="card card-body small mb-3">
     <h2 class="h6">Horas mensuales · vigente hoy: {{ vigente.valor if vigente else 180 }} h</h2>
     {% if rol == 'OPERACIONES' %}
     <form method="post" action="/parametros/horas" class="row g-2">
@@ -19,11 +19,26 @@
       <div class="col-12"><button class="btn btn-sm btn-primary">Guardar</button></div>
     </form>
     {% else %}<p class="text-secondary mb-0">Solo Operaciones modifica los parámetros.</p>{% endif %}
+  </div>
+  <div class="card card-body small">
+    <h2 class="h6">Confiabilidad inicial · vigente hoy: {{ confiabilidad_vigente.valor if confiabilidad_vigente else 90 }} %</h2>
+    {% if rol == 'OPERACIONES' %}
+    <form method="post" action="/parametros/confiabilidad-inicial" class="row g-2">
+      <input type="hidden" name="csrf_token" value="{{ csrf }}">
+      <div class="col-4"><label class="form-label mb-0 w-100">Confiabilidad (%)<input class="form-control form-control-sm" type="number" name="valor" min="0" max="100" step="1" required></label></div>
+      <div class="col-8"><label class="form-label mb-0 w-100">Rige desde el mes de<input class="form-control form-control-sm" type="date" name="desde" required></label></div>
+      <div class="col-12"><label class="form-label mb-0 w-100">Motivo *<input class="form-control form-control-sm" name="motivo" maxlength="500" required></label></div>
+      <div class="col-12"><button class="btn btn-sm btn-primary">Guardar</button></div>
+    </form>
+    {% else %}<p class="text-secondary mb-0">Solo Operaciones modifica los parámetros.</p>{% endif %}
   </div></div>
   <div class="col-12 col-lg-7"><div class="card card-body small">
     <h2 class="h6">Historia de horas mensuales</h2>
     <table class="table table-sm mb-3"><thead><tr><th>Rige desde</th><th class="num">Horas</th><th>Por</th><th>Registrado</th></tr></thead>
       <tbody>{% for p in horas %}<tr><td>{{ p.vigente_desde|mes }}</td><td class="num">{{ p.valor }}</td><td>{{ nombre_usuario(p.usuario_id) }}</td><td>{{ p.creado_en|local }}</td></tr>{% endfor %}</tbody></table>
+    <h2 class="h6">Historia de confiabilidad inicial</h2>
+    <table class="table table-sm mb-3"><thead><tr><th>Rige desde</th><th class="num">Confiabilidad</th><th>Por</th><th>Registrado</th></tr></thead>
+      <tbody>{% for p in confiabilidades %}<tr><td>{{ p.vigente_desde|mes }}</td><td class="num">{{ p.valor }} %</td><td>{{ nombre_usuario(p.usuario_id) }}</td><td>{{ p.creado_en|local }}</td></tr>{% endfor %}</tbody></table>
     <h2 class="h6">Otros parámetros</h2>
     <table class="table table-sm mb-0"><tbody>{% for p in otros %}<tr><td>{{ p.clave }}</td><td class="num">{{ p.valor }}</td><td>desde {{ p.vigente_desde|fecha }}</td></tr>{% endfor %}</tbody></table>
     <p class="small-help mb-0 mt-2">Valores iniciales: 180 h (S-01, pendiente de validar con el sponsor) y confiabilidad 90 %.</p>

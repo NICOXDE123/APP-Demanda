@@ -179,6 +179,41 @@ def test_horas_con_vigencia_no_reescriben_meses_anteriores(app):
                                                   "motivo": "x"}).status_code == 403
 
 
+def test_confiabilidad_inicial_editable_vigente_y_auditada(app):
+    ops, csrf = entrar(app, "operaciones@example.test")
+    anterior = alta(app, ops, csrf)
+    inicio_mes = date.today().replace(day=1)
+
+    r = ops.post("/parametros/confiabilidad-inicial", data={
+        "csrf_token": csrf, "valor": "40", "desde": inicio_mes.isoformat(), "motivo": "Ajuste de política",
+    }, follow_redirects=False)
+
+    assert r.status_code == 303
+    assert app.state.almacen.registros.obtener(anterior).confiabilidad_bp == 9_000
+    nuevo = alta(app, ops, csrf)
+    assert app.state.almacen.registros.obtener(nuevo).confiabilidad_bp == 4_000
+    demanda = alta(app, ops, csrf, tipo="DEMANDA", flujo="PROPUESTA_ENTREGADA", motivo="Adjudicación")
+    assert app.state.almacen.registros.obtener(demanda).confiabilidad_bp == 4_000
+
+    evento = next(e for e in app.state.almacen.auditoria.todos() if e.campo == "confiabilidad_inicial")
+    assert (evento.valor_anterior, evento.valor_nuevo, evento.motivo, evento.fecha_efectiva) == (
+        90, 40, "Ajuste de política", inicio_mes,
+    )
+    assert evento.mab_antes == evento.mab_despues
+    assert evento.forecast_antes == evento.forecast_despues
+
+    parametros = ops.get("/parametros").text
+    assert "Historia de confiabilidad inicial" in parametros
+    assert "40 %" in parametros and "90 %" in parametros
+    auditoria = ops.get("/auditoria?campo=confiabilidad_inicial").text
+    assert "Ajuste de política" in auditoria and "90 %" in auditoria and "40 %" in auditoria
+
+    lider, csrf_lider = entrar(app, "lider1@example.test")
+    assert lider.post("/parametros/confiabilidad-inicial", data={
+        "csrf_token": csrf_lider, "valor": "50", "desde": inicio_mes.isoformat(), "motivo": "x",
+    }).status_code == 403
+
+
 def test_dashboard_filtra_y_los_totales_son_la_suma_de_lo_visible(app):
     ops, _ = entrar(app, "operaciones@example.test")
     assert ops.get("/").status_code == 200

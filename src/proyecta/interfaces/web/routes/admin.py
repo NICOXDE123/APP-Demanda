@@ -19,7 +19,10 @@ def _parametros(request: Request, error: str | None = None, status_code: int = 2
     return render(request, "parametros.html", {
         "horas": list(reversed(almacen.parametros.listar("horas_mensuales"))),
         "vigente": almacen.parametros.vigente("horas_mensuales", date.today()),
-        "otros": [p for p in almacen.parametros.listar() if p.clave != "horas_mensuales"],
+        "confiabilidades": list(reversed(almacen.parametros.listar("confiabilidad_inicial"))),
+        "confiabilidad_vigente": almacen.parametros.vigente("confiabilidad_inicial", date.today()),
+        "otros": [p for p in almacen.parametros.listar()
+                  if p.clave not in {"horas_mensuales", "confiabilidad_inicial"}],
         "error": error, "ok": request.query_params.get("ok"),
     }, status_code=status_code)
 
@@ -36,6 +39,20 @@ async def cambiar_horas(request: Request):
     try:
         request.app.state.registros.cambiar_horas(
             request.state.usuario, a_entero(form.get("horas")) or 0,
+            a_fecha(form.get("desde")) or date.today(), texto(form, "motivo"))
+    except ErrorDominio as error:
+        return _parametros(request, error.message, error.status_sugerido)
+    return RedirectResponse("/parametros?ok=1", status_code=303)
+
+
+@router.post("/parametros/confiabilidad-inicial")
+async def cambiar_confiabilidad_inicial(request: Request):
+    exigir_rol(request, Rol.OPERACIONES)
+    form = await request.form()
+    valor = a_entero(form.get("valor"))
+    try:
+        request.app.state.registros.cambiar_confiabilidad_inicial(
+            request.state.usuario, valor if valor is not None else -1,
             a_fecha(form.get("desde")) or date.today(), texto(form, "motivo"))
     except ErrorDominio as error:
         return _parametros(request, error.message, error.status_sugerido)

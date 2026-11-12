@@ -72,6 +72,8 @@ def valor(v: Any, campo: str = "") -> str:
     """Valor de auditoría legible: etiquetas en español, porcentajes desde puntos base y tarifas en pesos."""
     if v is None:
         return "—"
+    if campo == "confiabilidad_inicial" and isinstance(v, int):
+        return f"{v} %"
     if campo.endswith("_bp") and isinstance(v, int):
         return pct(v)
     if campo.startswith("tarifa") and isinstance(v, int):
