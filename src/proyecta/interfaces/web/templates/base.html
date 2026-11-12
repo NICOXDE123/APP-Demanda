@@ -4,7 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block titulo %}Proyecta{% endblock %} · Gestión de la Demanda</title>
-  <link rel="icon" href="data:,">
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="alternate icon" href="/static/favicon.ico" sizes="16x16 32x32">
+  <script src="/static/js/tema.js"></script>
   <link rel="stylesheet" href="/static/vendor/bootstrap.min.css">
   <link rel="stylesheet" href="/static/css/app.css">
   <script src="/static/vendor/htmx.min.js" defer></script>
@@ -21,11 +23,9 @@
         <span class="navbar-toggler-icon"></span></button>
       <div class="collapse navbar-collapse" id="menu">
         <ul class="navbar-nav me-auto">
-          <li class="nav-item"><a class="nav-link" href="/">Dashboard</a></li>
-          <li class="nav-item"><a class="nav-link" href="/registros?activos=1">Registros</a></li>
-          {% if rol != 'EJECUTIVO' %}<li class="nav-item"><a class="nav-link" href="/registros/nuevo">Nuevo registro</a></li>{% endif %}
-          <li class="nav-item"><a class="nav-link" href="/parametros">Parámetros MAB</a></li>
-          <li class="nav-item"><a class="nav-link" href="/auditoria">Auditoría</a></li>
+          {% for clave, href, nombre in [('dashboard', '/', 'Dashboard'), ('registros', '/registros?activos=1', 'Registros'), ('parametros', '/parametros', 'Parámetros MAB'), ('auditoria', '/auditoria', 'Auditoría')] %}
+          <li class="nav-item"><a class="nav-link{% if seccion == clave %} active{% endif %}" href="{{ href }}"{% if seccion == clave %} aria-current="{{ 'location' if subseccion else 'page' }}"{% endif %}>{{ nombre }}</a></li>
+          {% endfor %}
         </ul>
         <span class="navbar-text small me-3">{{ usuario.nombre }} · {{ rol|etiqueta }}</span>
         <form method="post" action="/logout" class="d-inline">
@@ -34,6 +34,12 @@
         </form>
       </div>
       {% endif %}
+      <div class="tema-selector ms-3">
+        <label class="small text-white" for="tema">Tema</label>
+        <select class="form-select form-select-sm" id="tema" data-tema aria-label="Tema de la interfaz">
+          <option value="sistema">Sistema</option><option value="light">Claro</option><option value="dark">Oscuro</option>
+        </select>
+      </div>
     </div>
   </nav>
   <main id="principal" class="container-fluid px-3 px-lg-4 pb-5">

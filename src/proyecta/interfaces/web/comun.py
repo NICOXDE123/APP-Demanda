@@ -9,6 +9,7 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote, urlsplit
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -94,10 +95,67 @@ def render(request: Request, plantilla: str, contexto: dict[str, Any] | None = N
     usuario = getattr(request.state, "usuario", None)
     sesion = getattr(request.state, "sesion", None)
     almacen = request.app.state.almacen
+    contexto = contexto or {}
+    ruta = request.url.path
+    seccion = ruta.strip("/").split("/")[0] or "dashboard"
+
+    def formulario(accion: str) -> dict[str, Any]:
+        """Solo el formulario rechazado recibe su borrador, incluidos campos vacíos."""
+        activo = request.method == "POST" and ruta == accion
+        return {**(contexto.get("form", {}) if activo else {}),
+                "_enviado": activo,
+                "_prefijo": accion.strip("/").replace("/", "-") + "-",
+                "_errores": contexto.get("errores_campo", {}) if activo else {}}
+
+    def enlace_registro(registro_id: UUID) -> str:
+        origen = ruta + ("?" + request.url.query if request.url.query else "")
+        return f"/registros/{registro_id}?volver={quote(origen, safe='')}"
+
     base = {"usuario": usuario, "csrf": sesion.csrf_token if sesion else "",
+            "seccion": seccion, "subseccion": ruta.startswith("/registros/"), "formulario": formulario,
+            "volver": retorno_registros(request.query_params.get("volver")),
+            "enlace_registro": enlace_registro,
             "rol": usuario.rol.value if usuario else None, "cat": almacen.catalogos.etiqueta,
             "nombre_usuario": lambda uid: (almacen.usuarios.obtener(uid).nombre if uid and almacen.usuarios.obtener(uid) else "—")}
-    return templates.TemplateResponse(request, plantilla, {**base, **(contexto or {})}, status_code=status_code)
+    return templates.TemplateResponse(request, plantilla, {**base, **contexto}, status_code=status_code)
+
+
+def retorno_registros(valor: str | None) -> str:
+    """Permite únicamente volver al listado local, sin URLs externas ni controles."""
+    if valor and not any(ord(c) < 32 or ord(c) == 127 for c in valor) and "\\" not in valor:
+        try:
+            partes = urlsplit(valor)
+        except ValueError:
+            return "/registros?activos=1"
+        if not partes.scheme and not partes.netloc and partes.path == "/registros" and not partes.fragment:
+            return valor
+    return "/registros?activos=1"
+
+
+def errores_por_campo(mensajes: list[str], form) -> dict[str, str]:
+    """Asocia los mensajes existentes con controles; no altera las reglas del dominio."""
+    import re
+
+    resultado = {}
+    nombres = {"servicio": "servicio_proyecto", "cliente": "cliente_id", "sector": "sector_id",
+               "manager": "manager_id", "contrato": "c_codigo", "motivo": "motivo",
+               "tarifa": "tarifa", "confiabilidad": "valor", "horas": "horas", "contenido": "contenido"}
+    nombres.update({"hc": "p1_hc" if "p1_hc" in form else "hc",
+                    "dedicación": "p1_ded" if "p1_ded" in form else "ded"})
+    for mensaje in mensajes:
+        perfil = re.match(r"Perfil (\d+):", mensaje)
+        if perfil:
+            terminos = (("HC", "hc"), ("tarifa", "tarifa"), ("ingreso", "ingreso"),
+                        ("dedicación", "ded"), ("dedicacion_pct", "ded"), ("fecha_fin", "fin"))
+            for termino, sufijo in terminos:
+                campo = f"p{perfil[1]}_{sufijo}"
+                if termino.lower() in mensaje.lower() and campo in form:
+                    resultado[campo] = mensaje
+        else:
+            for termino, campo in nombres.items():
+                if termino in mensaje.lower() and campo in form:
+                    resultado[campo] = mensaje
+    return resultado
 
 
 # -- Seguridad --------------------------------------------------------------

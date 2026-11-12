@@ -6,6 +6,9 @@
 {% set accion = '/' %}{% include '_filtros.html' %}
 {% set q = filtros.a_query() %}
 {% set k = kpi %}
+<p class="small mb-2"><strong>{{ k.registros }}</strong> registro(s) con estos filtros. Las metas corresponden al período y alcance sectorial; los filtros de cliente, estado o búsqueda no reducen por sí solos las metas.</p>
+{% if not k.registros %}<div class="alert alert-info" role="status"><strong>No hay registros con estos filtros.</strong>
+  <p class="mb-1">No hay ingresos coincidentes para calcular. La meta y su brecha pueden seguir visibles como referencia.</p><a href="/" class="alert-link">Limpiar filtros</a></div>{% endif %}
 <div class="row g-2 mb-3" role="list" aria-label="Indicadores">
   {% for nombre, valor, enlace, ayuda in [
     ('Forecast', k.forecast|pesos, '/registros?' ~ q, 'Backlog contractual + MAB'),
@@ -33,13 +36,21 @@
 
 <div class="row g-3 mb-3">
   <div class="col-12 col-xl-7"><div class="card card-body">
-    <h2 class="h6">Forecast mensual vs. meta</h2>
+    <h2 class="h6">Forecast mensual vs. meta · {{ filtros.meses }} meses desde {{ filtros.periodo|mes }}</h2>
+    <p class="small-help mb-1">Barras: Backlog + MAB. Meta: línea discontinua. Importes en millones de CLP.
+      <a href="#serie-mensual">Ver datos mensuales</a></p>
+    <fieldset class="grafico-controles small mb-2"><legend class="small mb-1">Series visibles</legend>
+      <label class="me-3"><input type="checkbox" data-serie="0" checked>Backlog contractual (sólido)</label>
+      <label class="me-3"><input type="checkbox" data-serie="1" checked>MAB (trama)</label>
+      <label><input type="checkbox" data-serie="2" checked>Meta (línea discontinua)</label>
+    </fieldset><span id="estado-grafico" class="visually-hidden" role="status"></span>
+    <p class="small-help">Brecha del horizonte: {{ k.gap|pesos }}. {% if k.cobertura_bp is not none %}Cobertura {{ k.cobertura_bp|pct }}.{% else %}Sin meta para calcular cobertura.{% endif %}</p>
     <div class="grafico"><canvas id="grafico" role="img" aria-label="Gráfico de barras apiladas de Backlog contractual y MAB por mes, con la meta como línea; los valores están en la tabla contigua."></canvas></div>
     <script type="application/json" id="datos-grafico">{{ grafico|safe }}</script>
   </div></div>
   <div class="col-12 col-xl-5"><div class="card card-body">
-    <h2 class="h6">Serie mensual</h2>
-    <div class="tabla-scroll"><table class="table table-sm small mb-0">
+    <h2 class="h6" id="serie-mensual" tabindex="-1">Serie mensual · CLP y HC</h2>
+    <div class="tabla-scroll" role="region" tabindex="0" aria-label="Serie mensual de proyecciones"><table class="table table-sm small mb-0">
       <thead><tr><th>Mes</th><th class="num">Backlog</th><th class="num">MAB</th><th class="num">Forecast</th><th class="num">Meta</th><th class="num">HC</th></tr></thead>
       <tbody>{% for m in meses %}<tr><td>{{ m.mes|mes }}</td><td class="num">{{ m.backlog_clp|pesos }}</td><td class="num">{{ m.mab_clp|pesos }}</td>
         <td class="num fw-semibold">{{ m.forecast_clp|pesos }}</td><td class="num">{{ meta_mes[m.mes]|pesos }}</td><td class="num">{{ m.hc }}</td></tr>{% endfor %}</tbody>
@@ -52,26 +63,27 @@
 <div class="row g-3 mb-3">
   <div class="col-12 col-lg-6" id="sectores"><div class="card card-body">
     <h2 class="h6">Por sector · meta y gap</h2>
-    <div class="tabla-scroll"><table class="table table-sm small mb-0">
+    <div class="tabla-scroll" role="region" tabindex="0" aria-label="Proyecciones por sector"><table class="table table-sm small mb-0">
       <thead><tr><th>Sector</th><th class="num">Registros</th><th class="num">Forecast</th><th class="num">Meta</th><th class="num">Gap</th></tr></thead>
       <tbody>{% for g in por_sector %}{% set meta_s = meta_sector.get(g.clave, 0) %}
         <tr><td><a href="/registros?{{ filtros.a_query(sector=g.clave) }}">{{ cat(g.clave) }}</a></td><td class="num">{{ g.registros }}</td>
           <td class="num">{{ g.forecast|pesos }}</td><td class="num">{{ meta_s|pesos }}</td>
-          <td class="num {% if meta_s - g.forecast > 0 %}text-danger{% else %}text-success{% endif %}">{{ (meta_s - g.forecast)|pesos }}</td></tr>{% endfor %}</tbody>
+          <td class="num {% if meta_s - g.forecast > 0 %}text-danger{% else %}text-success{% endif %}">{{ (meta_s - g.forecast)|pesos }}</td></tr>{% else %}<tr><td colspan="5" class="text-secondary">Sin sectores con registros coincidentes.</td></tr>{% endfor %}</tbody>
     </table></div>
     <p class="small-help mb-0 mt-1">Gap positivo es brecha; negativo, exceso sobre la meta.</p>
   </div></div>
   <div class="col-12 col-lg-6"><div class="card card-body">
     <h2 class="h6">Por responsable (owner)</h2>
-    <div class="tabla-scroll"><table class="table table-sm small mb-0">
+    <div class="tabla-scroll" role="region" tabindex="0" aria-label="Proyecciones por responsable"><table class="table table-sm small mb-0">
       <thead><tr><th>Owner</th><th class="num">Registros</th><th class="num">MAB</th><th class="num">Forecast</th></tr></thead>
       <tbody>{% for g in por_owner %}<tr><td><a href="/registros?{{ filtros.a_query(owner=g.clave) }}">{{ nombre_usuario(g.clave) }}</a></td>
-        <td class="num">{{ g.registros }}</td><td class="num">{{ g.mab|pesos }}</td><td class="num">{{ g.forecast|pesos }}</td></tr>{% endfor %}</tbody>
+        <td class="num">{{ g.registros }}</td><td class="num">{{ g.mab|pesos }}</td><td class="num">{{ g.forecast|pesos }}</td></tr>{% else %}<tr><td colspan="4" class="text-secondary">Sin responsables con registros coincidentes.</td></tr>{% endfor %}</tbody>
     </table></div>
     <h2 class="h6 mt-3">Principales clientes</h2>
-    <div class="tabla-scroll"><table class="table table-sm small mb-0">
+    <div class="tabla-scroll" role="region" tabindex="0" aria-label="Principales clientes"><table class="table table-sm small mb-0">
+      <thead><tr><th>Cliente</th><th class="num">Registros</th><th class="num">Forecast</th></tr></thead>
       <tbody>{% for g in por_cliente %}<tr><td><a href="/registros?{{ filtros.a_query(cliente=g.clave) }}">{{ cat(g.clave) }}</a></td>
-        <td class="num">{{ g.registros }} reg.</td><td class="num">{{ g.forecast|pesos }}</td></tr>{% endfor %}</tbody>
+        <td class="num">{{ g.registros }} reg.</td><td class="num">{{ g.forecast|pesos }}</td></tr>{% else %}<tr><td colspan="3" class="text-secondary">Sin clientes con registros coincidentes.</td></tr>{% endfor %}</tbody>
     </table></div>
   </div></div>
 </div>
@@ -79,11 +91,11 @@
 <div class="row g-3 mb-3">
   <div class="col-12 col-lg-6"><div class="card card-body">
     <h2 class="h6">Pipeline por estado</h2>
-    <table class="table table-sm small mb-3"><tbody>{% for g in por_estado %}
-      <tr><td><a href="/registros?{{ filtros.a_query(estado=g.clave) }}">{{ g.clave|etiqueta }}</a></td><td class="num">{{ g.registros }}</td><td class="num">{{ g.forecast|pesos }}</td></tr>{% endfor %}</tbody></table>
+    <table class="table table-sm small mb-3"><thead><tr><th>Estado</th><th class="num">Registros</th><th class="num">Forecast</th></tr></thead><tbody>{% for g in por_estado %}
+      <tr><td><a href="/registros?{{ filtros.a_query(estado=g.clave) }}">{{ g.clave|etiqueta }}</a></td><td class="num">{{ g.registros }}</td><td class="num">{{ g.forecast|pesos }}</td></tr>{% else %}<tr><td colspan="3" class="text-secondary">Sin estados con registros coincidentes.</td></tr>{% endfor %}</tbody></table>
     <h2 class="h6">Pipeline por flujo</h2>
-    <table class="table table-sm small mb-0"><tbody>{% for g in por_flujo|sort(attribute='clave') %}
-      <tr><td><a href="/registros?{{ filtros.a_query(flujo=g.clave) }}">{{ g.clave|etiqueta }}</a></td><td class="num">{{ g.registros }}</td><td class="num">{{ g.mab|pesos }}</td></tr>{% endfor %}</tbody></table>
+    <table class="table table-sm small mb-0"><thead><tr><th>Flujo</th><th class="num">Registros</th><th class="num">MAB</th></tr></thead><tbody>{% for g in por_flujo|sort(attribute='clave') %}
+      <tr><td><a href="/registros?{{ filtros.a_query(flujo=g.clave) }}">{{ g.clave|etiqueta }}</a></td><td class="num">{{ g.registros }}</td><td class="num">{{ g.mab|pesos }}</td></tr>{% else %}<tr><td colspan="3" class="text-secondary">Sin flujos con registros coincidentes.</td></tr>{% endfor %}</tbody></table>
   </div></div>
   <div class="col-12 col-lg-6"><div class="card card-body">
     <h2 class="h6">Alertas</h2>

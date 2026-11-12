@@ -10,6 +10,8 @@ from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -83,8 +85,17 @@ def crear_app(almacen: Almacen | None = None) -> FastAPI:
     async def error_http(request: Request, error: StarletteHTTPException):
         if request.url.path.startswith("/api/") or error.status_code == 405:
             return JSONResponse({"detail": error.detail}, status_code=error.status_code)
-        return render(request, "error.html", {"codigo": error.status_code, "detalle": error.detail},
+        detalle = "No encontramos la página solicitada." if error.status_code == 404 and error.detail == "Not Found" else error.detail
+        return render(request, "error.html", {"codigo": error.status_code, "detalle": detalle},
                       status_code=error.status_code)
+
+    @app.exception_handler(RequestValidationError)
+    async def error_validacion(request: Request, error: RequestValidationError):
+        if request.url.path.startswith("/api/"):
+            return await request_validation_exception_handler(request, error)
+        detalle = ("El enlace del registro no es válido. Abre el registro desde el listado."
+                   if request.url.path.startswith("/registros/") else "Revisa los datos de la solicitud y vuelve a intentarlo.")
+        return render(request, "error.html", {"codigo": 422, "detalle": detalle}, status_code=422)
 
     api = APIRouter(prefix="/api/v1")
     api.include_router(forecast.router)

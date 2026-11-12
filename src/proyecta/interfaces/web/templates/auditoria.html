@@ -12,12 +12,12 @@
       {% for u in usuarios %}<option value="{{ u.id }}" {% if q.usuario == u.id|string %}selected{% endif %}>{{ u.nombre }}</option>{% endfor %}</select></div>
     <div class="col-6 col-md-2"><label class="form-label mb-0" for="a-desde">Desde</label><input id="a-desde" class="form-control form-control-sm" type="date" name="desde" value="{{ q.desde }}"></div>
     <div class="col-6 col-md-2"><label class="form-label mb-0" for="a-hasta">Hasta</label><input id="a-hasta" class="form-control form-control-sm" type="date" name="hasta" value="{{ q.hasta }}"></div>
-    <div class="col-auto"><button class="btn btn-sm btn-primary">Filtrar</button></div>
+    <div class="col-auto"><button class="btn btn-sm btn-primary">Filtrar</button> <a class="btn btn-sm btn-link" href="/auditoria">Limpiar filtros</a></div>
   </div>
 </form>
 <div class="card card-body">
   <p class="small mb-2">{{ total }} evento(s){% if total > 500 %}; se muestran los 500 más recientes{% endif %}.</p>
-  <div class="tabla-scroll"><table class="table table-sm small mb-0">
+  <div class="tabla-scroll" role="region" tabindex="0" aria-label="Eventos de auditor?a"><table class="table table-sm small mb-0">
     <thead><tr><th>Fecha</th><th>Usuario</th><th>Registro</th><th>Entidad</th><th>Campo</th><th>Antes</th><th>Después</th><th>Motivo</th>
       <th class="num">MAB antes → después</th><th class="num">Forecast antes → después</th></tr></thead>
     <tbody>{% for e in eventos %}<tr><td class="text-nowrap">{{ e.fecha_hora|local }}</td><td>{{ nombre_usuario(e.usuario_id) }}</td>
@@ -26,7 +26,7 @@
       <td>{{ e.valor_anterior|valor(e.campo) }}</td><td>{{ e.valor_nuevo|valor(e.campo) }}</td>
       <td>{{ e.motivo or '—' }}</td>
       <td class="num">{{ e.mab_antes|pesos }} → {{ e.mab_despues|pesos }}</td><td class="num">{{ e.forecast_antes|pesos }} → {{ e.forecast_despues|pesos }}</td></tr>
-    {% else %}<tr><td colspan="10" class="text-secondary">Sin eventos con estos filtros.</td></tr>{% endfor %}</tbody>
+    {% else %}<tr><td colspan="10" class="text-secondary">{% if total_sin_filtros %}Sin eventos con estos filtros. Prueba limpiar los filtros.{% else %}Todavía no hay eventos registrados para tu alcance. Los datos iniciales de la semilla no tienen historial; los nuevos cambios generan auditoría.{% endif %}</td></tr>{% endfor %}</tbody>
   </table></div>
 </div>
 {% endblock %}

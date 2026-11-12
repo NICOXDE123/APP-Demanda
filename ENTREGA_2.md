@@ -66,7 +66,7 @@ Mientras NTT DATA habilita el proyecto de GCP (S-12), la misma imagen de Cloud R
 
 | # | Funcionalidad del OnePage | Dónde se ve | Qué hace |
 |:-:|---|---|---|
-| 1 | Crear oportunidad o demanda con sus campos | *Nuevo registro* | Tres tipos: oportunidad (Pendiente, flujo 1, P 10 %, C 90 %), demanda directa (Adjudicada, flujo 3–5, P 100 %, con motivo) y continuidad con ficha de contrato (solo Operaciones). Código `OPD-####`, validación en el servidor sin guardado parcial y vista previa del cálculo antes de guardar |
+| 1 | Crear oportunidad o demanda con sus campos | *Registros* › botón *Nuevo registro* (modal) | Tres tipos: oportunidad (Pendiente, flujo 1, P 10 %, C 90 %), demanda directa (Adjudicada, flujo 3–5, P 100 %, con motivo) y continuidad con ficha de contrato (solo Operaciones). Código `OPD-####`, validación en el servidor sin guardado parcial y vista previa del cálculo antes de guardar |
 | 2 | Bitácora | Ficha › *Bitácora* | Entradas con tipo, autor, fecha y hora, próxima acción y fecha compromiso; no se editan ni se borran. Cada cambio de estado deja su entrada |
 | 3 | Perfiles y HC | Ficha › *Perfiles* | Agregar, editar y quitar perfiles. HC de 1 a 999 y dedicación de 1 a 100 %. Un cambio de HC exige motivo |
 | 4 | Tarifas | Ficha › *Perfiles* › *Cambiar tarifa* | Historia de tarifas por perfil, sin superposición; la nueva rige desde su mes y no reescribe los anteriores |
@@ -109,7 +109,7 @@ Mientras NTT DATA habilita el proyecto de GCP (S-12), la misma imagen de Cloud R
 ### Recorrido de 5 minutos
 
 1. **Operaciones:** entra al *Dashboard*. Revisa el Forecast y la serie mensual contra la meta. Abre una cifra (por ejemplo, *Backlog confirmado*) para ver sus registros y, desde ahí, un registro con su cálculo mes a mes; cada mes se despliega con sus componentes.
-2. **Líder 1:** crea una oportunidad en *Nuevo registro* con un perfil de 3 HC a $2.600/h. Antes de guardar, la vista previa muestra una Base de $1.404.000 al mes con 180 h.
+2. **Líder 1:** desde *Registros*, abre el modal con *Nuevo registro* y crea una oportunidad con un perfil de 3 HC a $2.600/h. Antes de guardar, la vista previa muestra una Base de $1.404.000 al mes con 180 h.
 3. En la ficha, cambia el flujo a *2 · Propuesta en curso* (la P sugerida pasa a 25 %). Después adjudica: el tipo pasa a Demanda, la P a 100 % y el registro aparece en el Backlog confirmado.
 4. Agrega una entrada de bitácora y revisa la *Auditoría* de la ficha: cada campo cambiado tiene su motivo y su impacto en el Forecast.
 5. **Operaciones:** en *Parámetros MAB*, cambia las horas mensuales desde un mes futuro. Los meses anteriores no cambian; los siguientes sí, y el cambio queda auditado.

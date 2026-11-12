@@ -1,77 +1,85 @@
-{% extends 'base.html' %}
-{% block titulo %}Nuevo registro{% endblock %}
-{% block contenido %}
-<h1 class="h4">Nuevo registro</h1>
-{% if errores %}<div class="alert alert-danger small" role="alert"><strong>No se guardó.</strong>
-  <ul class="mb-0">{% for e in errores %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+<dialog id="alta-dialog" class="alta-dialog" aria-labelledby="alta-titulo"
+  {% if abrir_alta %}data-dialog-open-on-load{% endif %}>
+  <div class="alta-dialog__content">
+    <header class="alta-dialog__header">
+      <h2 class="h4 mb-0" id="alta-titulo">Nuevo registro</h2>
+      <button class="btn-close" type="button" aria-label="Cerrar formulario" data-dialog-close></button>
+    </header>
+{% if errores %}<div class="alert alert-danger small mt-3" role="alert" tabindex="-1" data-error-summary><strong>No se guardó.</strong>
+  <ul class="mb-0">{% for e in errores %}<li>{% set ns = namespace(campo='') %}{% for nombre, mensaje in errores_campo.items() %}{% if mensaje == e and not ns.campo %}{% set ns.campo = nombre %}{% endif %}{% endfor %}
+  {% if ns.campo %}<a href="#{{ {'servicio_proyecto': 'servicio', 'fecha_ingreso': 'ingreso', 'fecha_fin_vigencia': 'finv'}.get(ns.campo, ns.campo) }}">{{ e }}</a>{% else %}{{ e }}{% endif %}</li>{% endfor %}</ul></div>{% endif %}
 <form method="post" action="/registros" class="card card-body" id="alta">
   <input type="hidden" name="csrf_token" value="{{ csrf }}">
   <div class="row g-3">
     <div class="col-12 col-md-3"><label class="form-label" for="tipo">Tipo</label>
-      <select class="form-select" id="tipo" name="tipo">
+      <select class="form-select" id="tipo" name="tipo" {% if 'tipo' in errores_campo %}aria-invalid="true" aria-describedby="tipo-error"{% endif %}>
         <option value="OPORTUNIDAD" {% if form.tipo == 'OPORTUNIDAD' %}selected{% endif %}>Oportunidad (Pendiente · flujo 1 · P 10 %)</option>
         <option value="DEMANDA" {% if form.tipo == 'DEMANDA' %}selected{% endif %}>Demanda directa (Adjudicada · P 100 %)</option>
         {% if rol == 'OPERACIONES' %}<option value="CONTINUIDAD" {% if form.tipo == 'CONTINUIDAD' %}selected{% endif %}>Continuidad (contrato vigente)</option>{% endif %}
-      </select></div>
+      </select>{% if 'tipo' in errores_campo %}<span class="d-block text-danger small" id="tipo-error">{{ errores_campo['tipo'] }}</span>{% endif %}</div>
     <div class="col-12 col-md-5"><label class="form-label" for="servicio">Servicio o proyecto *</label>
-      <input class="form-control" id="servicio" name="servicio_proyecto" maxlength="200" required value="{{ form.servicio_proyecto or '' }}"></div>
+      <input class="form-control" id="servicio" name="servicio_proyecto" maxlength="200" required autofocus value="{{ form.servicio_proyecto or '' }}" {% if 'servicio_proyecto' in errores_campo %}aria-invalid="true" aria-describedby="servicio_proyecto-error"{% endif %}>{% if 'servicio_proyecto' in errores_campo %}<span class="d-block text-danger small" id="servicio_proyecto-error">{{ errores_campo['servicio_proyecto'] }}</span>{% endif %}</div>
     <div class="col-6 col-md-2"><label class="form-label" for="ingreso">Fecha de ingreso</label>
-      <input class="form-control" type="date" id="ingreso" name="fecha_ingreso" value="{{ form.fecha_ingreso or '' }}"></div>
+      <input class="form-control" type="date" id="ingreso" name="fecha_ingreso" value="{{ form.fecha_ingreso or '' }}" {% if 'fecha_ingreso' in errores_campo %}aria-invalid="true" aria-describedby="fecha_ingreso-error"{% endif %}>{% if 'fecha_ingreso' in errores_campo %}<span class="d-block text-danger small" id="fecha_ingreso-error">{{ errores_campo['fecha_ingreso'] }}</span>{% endif %}</div>
     <div class="col-6 col-md-2"><label class="form-label" for="finv">Fin de vigencia</label>
-      <input class="form-control" type="date" id="finv" name="fecha_fin_vigencia" value="{{ form.fecha_fin_vigencia or '' }}"></div>
+      <input class="form-control" type="date" id="finv" name="fecha_fin_vigencia" value="{{ form.fecha_fin_vigencia or '' }}" {% if 'fecha_fin_vigencia' in errores_campo %}aria-invalid="true" aria-describedby="fecha_fin_vigencia-error"{% endif %}>{% if 'fecha_fin_vigencia' in errores_campo %}<span class="d-block text-danger small" id="fecha_fin_vigencia-error">{{ errores_campo['fecha_fin_vigencia'] }}</span>{% endif %}</div>
     {% for campo, etiqueta_campo, opciones in [('cliente_id', 'Cliente *', clientes), ('sector_id', 'Sector *', sectores), ('manager_id', 'Manager *', managers)] %}
     <div class="col-12 col-md-3"><label class="form-label" for="{{ campo }}">{{ etiqueta_campo }}</label>
-      <select class="form-select" id="{{ campo }}" name="{{ campo }}" required><option value="">Elige…</option>
-        {% for c in opciones %}<option value="{{ c.id }}" {% if form[campo] == c.id|string %}selected{% endif %}>{{ c.etiqueta }}</option>{% endfor %}</select></div>
+      <select class="form-select" id="{{ campo }}" name="{{ campo }}" required {% if campo in errores_campo %}aria-invalid="true" aria-describedby="{{ campo }}-error"{% endif %}><option value="">Elige…</option>
+        {% for c in opciones %}<option value="{{ c.id }}" {% if form[campo] == c.id|string %}selected{% endif %}>{{ c.etiqueta }}</option>{% endfor %}</select>{% if campo in errores_campo %}<span class="d-block text-danger small" id="{{ campo }}-error">{{ errores_campo[campo] }}</span>{% endif %}</div>
     {% endfor %}
     {% if rol == 'OPERACIONES' %}
     <div class="col-12 col-md-3"><label class="form-label" for="owner_id">Owner (líder)</label>
-      <select class="form-select" id="owner_id" name="owner_id"><option value="">Yo</option>
-        {% for u in lideres %}<option value="{{ u.id }}" {% if form.owner_id == u.id|string %}selected{% endif %}>{{ u.nombre }}</option>{% endfor %}</select></div>
+      <select class="form-select" id="owner_id" name="owner_id" {% if 'owner_id' in errores_campo %}aria-invalid="true" aria-describedby="owner_id-error"{% endif %}><option value="">Yo</option>
+        {% for u in lideres %}<option value="{{ u.id }}" {% if form.owner_id == u.id|string %}selected{% endif %}>{{ u.nombre }}</option>{% endfor %}</select>{% if 'owner_id' in errores_campo %}<span class="d-block text-danger small" id="owner_id-error">{{ errores_campo['owner_id'] }}</span>{% endif %}</div>
     {% endif %}
     <div class="col-12" data-solo-tipo="DEMANDA">
       <div class="row g-3">
         <div class="col-12 col-md-3"><label class="form-label" for="flujo">Flujo</label>
-          <select class="form-select" id="flujo" name="flujo">{% for f in flujos[2:5] %}<option value="{{ f.value }}" {% if form.flujo == f.value %}selected{% endif %}>{{ f|etiqueta }}</option>{% endfor %}</select></div>
+          <select class="form-select" id="flujo" name="flujo" {% if 'flujo' in errores_campo %}aria-invalid="true" aria-describedby="flujo-error"{% endif %}>{% for f in flujos[2:5] %}<option value="{{ f.value }}" {% if form.flujo == f.value %}selected{% endif %}>{{ f|etiqueta }}</option>{% endfor %}</select>{% if 'flujo' in errores_campo %}<span class="d-block text-danger small" id="flujo-error">{{ errores_campo['flujo'] }}</span>{% endif %}</div>
         <div class="col-6 col-md-3"><label class="form-label" for="fadj">Fecha de adjudicación</label>
-          <input class="form-control" type="date" id="fadj" name="fecha_adjudicacion" value="{{ form.fecha_adjudicacion or '' }}"></div>
+          <input class="form-control" type="date" id="fadj" name="fecha_adjudicacion" value="{{ form.fecha_adjudicacion or '' }}" {% if 'fecha_adjudicacion' in errores_campo %}aria-invalid="true" aria-describedby="fecha_adjudicacion-error"{% endif %}>{% if 'fecha_adjudicacion' in errores_campo %}<span class="d-block text-danger small" id="fecha_adjudicacion-error">{{ errores_campo['fecha_adjudicacion'] }}</span>{% endif %}</div>
         <div class="col-12 col-md-6"><label class="form-label" for="motivo">Motivo de demanda directa *</label>
-          <input class="form-control" id="motivo" name="motivo" maxlength="500" value="{{ form.motivo or '' }}"></div>
+          <input class="form-control" id="motivo" name="motivo" maxlength="500" value="{{ form.motivo or '' }}" {% if 'motivo' in errores_campo %}aria-invalid="true" aria-describedby="motivo-error"{% endif %}>{% if 'motivo' in errores_campo %}<span class="d-block text-danger small" id="motivo-error">{{ errores_campo['motivo'] }}</span>{% endif %}</div>
       </div>
     </div>
     <fieldset class="col-12" data-solo-tipo="CONTINUIDAD"><legend class="h6">Ficha de contrato</legend>
       <div class="row g-3">
         <div class="col-6 col-md-3"><label class="form-label" for="c_codigo">Código de contrato *</label>
-          <input class="form-control" id="c_codigo" name="c_codigo" maxlength="40" value="{{ form.c_codigo or '' }}"></div>
+          <input class="form-control" id="c_codigo" name="c_codigo" maxlength="40" value="{{ form.c_codigo or '' }}" {% if 'c_codigo' in errores_campo %}aria-invalid="true" aria-describedby="c_codigo-error"{% endif %}>{% if 'c_codigo' in errores_campo %}<span class="d-block text-danger small" id="c_codigo-error">{{ errores_campo['c_codigo'] }}</span>{% endif %}</div>
         <div class="col-6 col-md-2"><label class="form-label" for="c_inicio">Inicio</label>
-          <input class="form-control" type="date" id="c_inicio" name="c_inicio" value="{{ form.c_inicio or '' }}"></div>
+          <input class="form-control" type="date" id="c_inicio" name="c_inicio" value="{{ form.c_inicio or '' }}" {% if 'c_inicio' in errores_campo %}aria-invalid="true" aria-describedby="c_inicio-error"{% endif %}>{% if 'c_inicio' in errores_campo %}<span class="d-block text-danger small" id="c_inicio-error">{{ errores_campo['c_inicio'] }}</span>{% endif %}</div>
         <div class="col-6 col-md-2"><label class="form-label" for="c_fin">Fin (vacío = indefinido)</label>
-          <input class="form-control" type="date" id="c_fin" name="c_fin" value="{{ form.c_fin or '' }}"></div>
+          <input class="form-control" type="date" id="c_fin" name="c_fin" value="{{ form.c_fin or '' }}" {% if 'c_fin' in errores_campo %}aria-invalid="true" aria-describedby="c_fin-error"{% endif %}>{% if 'c_fin' in errores_campo %}<span class="d-block text-danger small" id="c_fin-error">{{ errores_campo['c_fin'] }}</span>{% endif %}</div>
         <div class="col-6 col-md-3"><label class="form-label" for="c_monto">Monto mensual (CLP)</label>
-          <input class="form-control" id="c_monto" name="c_monto" inputmode="numeric" value="{{ form.c_monto or '' }}" placeholder="vacío = desde los perfiles"></div>
+          <input class="form-control" id="c_monto" name="c_monto" inputmode="numeric" value="{{ form.c_monto or '' }}" placeholder="vacío = desde los perfiles" {% if 'c_monto' in errores_campo %}aria-invalid="true" aria-describedby="c_monto-error"{% endif %}>{% if 'c_monto' in errores_campo %}<span class="d-block text-danger small" id="c_monto-error">{{ errores_campo['c_monto'] }}</span>{% endif %}</div>
         <div class="col-6 col-md-2"><label class="form-label" for="c_hc">HC comprometido</label>
-          <input class="form-control" id="c_hc" name="c_hc" type="number" min="0" max="999" value="{{ form.c_hc or '' }}"></div>
+          <input class="form-control" id="c_hc" name="c_hc" type="number" min="0" max="999" value="{{ form.c_hc or '' }}" {% if 'c_hc' in errores_campo %}aria-invalid="true" aria-describedby="c_hc-error"{% endif %}>{% if 'c_hc' in errores_campo %}<span class="d-block text-danger small" id="c_hc-error">{{ errores_campo['c_hc'] }}</span>{% endif %}</div>
       </div>
     </fieldset>
     <div class="col-12"><label class="form-label" for="obs">Observaciones</label>
-      <textarea class="form-control" id="obs" name="observaciones" rows="2" maxlength="2000">{{ form.observaciones or '' }}</textarea>
+      <textarea class="form-control" id="obs" name="observaciones" rows="2" maxlength="2000" {% if 'observaciones' in errores_campo %}aria-invalid="true" aria-describedby="observaciones-error"{% endif %}>{{ form.observaciones or '' }}</textarea>{% if 'observaciones' in errores_campo %}<span class="d-block text-danger small" id="observaciones-error">{{ errores_campo['observaciones'] }}</span>{% endif %}
       <div class="small-help">Las observaciones no reemplazan la bitácora (FR-010).</div></div>
   </div>
 
   <h2 class="h6 mt-3">Perfiles <span class="small-help">(HC 1–999, dedicación 1–100 %, tarifa en CLP por hora; filas vacías se ignoran)</span></h2>
-  <div class="tabla-scroll"><table class="table table-sm small align-middle">
+  <div class="tabla-scroll" role="region" tabindex="0" aria-label="Perfiles del nuevo registro"><table class="table table-sm small align-middle">
     <thead><tr><th>#</th><th>Perfil</th><th>HC</th><th>Dedicación %</th><th>Tarifa CLP/h</th><th>Ingreso</th><th>Fin (primer día sin actividad)</th></tr></thead>
     <tbody>{% for i in range(1, max_perfiles + 1) %}<tr><td>{{ i }}</td>
-      <td><select class="form-select form-select-sm" name="p{{ i }}_nombre" aria-label="Perfil {{ i }}"><option value="">—</option>
-        {% for c in nombres_perfil %}<option value="{{ c.id }}" {% if form['p' ~ i ~ '_nombre'] == c.id|string %}selected{% endif %}>{{ c.etiqueta }}</option>{% endfor %}</select></td>
-      <td><input class="form-control form-control-sm" name="p{{ i }}_hc" type="number" min="1" max="999" aria-label="HC perfil {{ i }}" value="{{ form['p' ~ i ~ '_hc'] or '' }}"></td>
-      <td><input class="form-control form-control-sm" name="p{{ i }}_ded" type="number" min="1" max="100" aria-label="Dedicación perfil {{ i }}" value="{{ form['p' ~ i ~ '_ded'] or '' }}"></td>
-      <td><input class="form-control form-control-sm" name="p{{ i }}_tarifa" inputmode="decimal" aria-label="Tarifa perfil {{ i }}" value="{{ form['p' ~ i ~ '_tarifa'] or '' }}"></td>
-      <td><input class="form-control form-control-sm" name="p{{ i }}_ingreso" type="date" aria-label="Ingreso perfil {{ i }}" value="{{ form['p' ~ i ~ '_ingreso'] or '' }}"></td>
-      <td><input class="form-control form-control-sm" name="p{{ i }}_fin" type="date" aria-label="Fin perfil {{ i }}" value="{{ form['p' ~ i ~ '_fin'] or '' }}"></td></tr>{% endfor %}</tbody>
+      <td><select class="form-select form-select-sm" name="p{{ i }}_nombre" aria-label="Perfil {{ i }}" id="p{{ i }}_nombre" {% if 'p' ~ i ~ '_nombre' in errores_campo %}aria-invalid="true" aria-describedby="p{{ i }}_nombre-error"{% endif %}><option value="">—</option>
+        {% for c in nombres_perfil %}<option value="{{ c.id }}" {% if form['p' ~ i ~ '_nombre'] == c.id|string %}selected{% endif %}>{{ c.etiqueta }}</option>{% endfor %}</select>{% if 'p' ~ i ~ '_nombre' in errores_campo %}<span class="d-block text-danger small" id="p{{ i }}_nombre-error">{{ errores_campo['p' ~ i ~ '_nombre'] }}</span>{% endif %}</td>
+      <td><input class="form-control form-control-sm" name="p{{ i }}_hc" type="number" min="1" max="999" aria-label="HC perfil {{ i }}" value="{{ form['p' ~ i ~ '_hc'] or '' }}" id="p{{ i }}_hc" {% if 'p' ~ i ~ '_hc' in errores_campo %}aria-invalid="true" aria-describedby="p{{ i }}_hc-error"{% endif %}>{% if 'p' ~ i ~ '_hc' in errores_campo %}<span class="d-block text-danger small" id="p{{ i }}_hc-error">{{ errores_campo['p' ~ i ~ '_hc'] }}</span>{% endif %}</td>
+      <td><input class="form-control form-control-sm" name="p{{ i }}_ded" type="number" min="1" max="100" aria-label="Dedicación perfil {{ i }}" value="{{ form['p' ~ i ~ '_ded'] or '' }}" id="p{{ i }}_ded" {% if 'p' ~ i ~ '_ded' in errores_campo %}aria-invalid="true" aria-describedby="p{{ i }}_ded-error"{% endif %}>{% if 'p' ~ i ~ '_ded' in errores_campo %}<span class="d-block text-danger small" id="p{{ i }}_ded-error">{{ errores_campo['p' ~ i ~ '_ded'] }}</span>{% endif %}</td>
+      <td><input class="form-control form-control-sm" name="p{{ i }}_tarifa" inputmode="decimal" aria-label="Tarifa perfil {{ i }}" value="{{ form['p' ~ i ~ '_tarifa'] or '' }}" id="p{{ i }}_tarifa" {% if 'p' ~ i ~ '_tarifa' in errores_campo %}aria-invalid="true" aria-describedby="p{{ i }}_tarifa-error"{% endif %}>{% if 'p' ~ i ~ '_tarifa' in errores_campo %}<span class="d-block text-danger small" id="p{{ i }}_tarifa-error">{{ errores_campo['p' ~ i ~ '_tarifa'] }}</span>{% endif %}</td>
+      <td><input class="form-control form-control-sm" name="p{{ i }}_ingreso" type="date" aria-label="Ingreso perfil {{ i }}" value="{{ form['p' ~ i ~ '_ingreso'] or '' }}" id="p{{ i }}_ingreso" {% if 'p' ~ i ~ '_ingreso' in errores_campo %}aria-invalid="true" aria-describedby="p{{ i }}_ingreso-error"{% endif %}>{% if 'p' ~ i ~ '_ingreso' in errores_campo %}<span class="d-block text-danger small" id="p{{ i }}_ingreso-error">{{ errores_campo['p' ~ i ~ '_ingreso'] }}</span>{% endif %}</td>
+      <td><input class="form-control form-control-sm" name="p{{ i }}_fin" type="date" aria-label="Fin perfil {{ i }}" value="{{ form['p' ~ i ~ '_fin'] or '' }}" id="p{{ i }}_fin" {% if 'p' ~ i ~ '_fin' in errores_campo %}aria-invalid="true" aria-describedby="p{{ i }}_fin-error"{% endif %}>{% if 'p' ~ i ~ '_fin' in errores_campo %}<span class="d-block text-danger small" id="p{{ i }}_fin-error">{{ errores_campo['p' ~ i ~ '_fin'] }}</span>{% endif %}</td></tr>{% endfor %}</tbody>
   </table></div>
   <div id="vista-previa" class="border rounded p-2 mb-3 bg-body-tertiary" hx-post="/registros/vista-previa"
-       hx-include="#alta" hx-trigger="load, input delay:400ms from:#alta, change from:#alta" hx-swap="innerHTML"><span class="small text-secondary">La vista previa del cálculo aparece al completar un perfil.</span></div>
-  <div><button class="btn btn-primary">Guardar registro</button> <a class="btn btn-link" href="/registros">Cancelar</a></div>
+       hx-include="#alta" hx-trigger="actualizar-previa" hx-sync="this:replace" hx-swap="innerHTML" aria-busy="false"><span class="small text-secondary">La vista previa del cálculo aparece al completar un perfil.</span></div>
+  <div class="small mb-3"><span id="estado-previa" role="status" aria-atomic="true">Completa los perfiles para calcular.</span>
+    <button type="button" class="btn btn-sm btn-link" data-reintentar-previa>Actualizar vista previa</button></div>
+  <div class="d-flex flex-wrap gap-2"><button class="btn btn-primary">Guardar registro</button>
+    <button class="btn btn-outline-secondary" type="button" data-dialog-close>Cancelar</button></div>
 </form>
-{% endblock %}
+  </div>
+</dialog>

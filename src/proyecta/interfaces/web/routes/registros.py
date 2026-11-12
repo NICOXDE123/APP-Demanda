@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import date
 from uuid import UUID
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
@@ -37,6 +38,8 @@ from proyecta.interfaces.web.comun import (
     a_fecha,
     a_uuid,
     exigir_csrf,
+    errores_por_campo,
+    retorno_registros,
     render,
     texto,
 )
@@ -63,10 +66,25 @@ def _catalogos(request: Request) -> dict:
 # -- Lista y alta -------------------------------------------------------------
 
 @router.get("/registros")
-def lista(request: Request):
+def _pagina_lista(request: Request, *, form=None, errores=(), status_code: int = 200, abrir_alta=None):
     f = leer_filtros(request)
     datos = tablero(request.app.state.almacen, request.app.state.calculo, request.state.usuario, f)
-    return render(request, "registros/lista.html", {**datos, **opciones_filtro(request)})
+    if form is None:
+        siguiente = Period.desde_fecha(date.today()).siguiente().inicio
+        form = {"tipo": "OPORTUNIDAD", "p1_hc": "3", "p1_ded": "100", "p1_tarifa": "25.000",
+                "p1_ingreso": siguiente.isoformat()}
+    if abrir_alta is None:
+        abrir_alta = request.query_params.get("nuevo") == "1"
+    return render(request, "registros/lista.html", {
+        **datos, **opciones_filtro(request), **_catalogos(request),
+        "form": form, "errores": errores, "max_perfiles": MAX_PERFILES_ALTA, "abrir_alta": abrir_alta,
+        "errores_campo": errores_por_campo(list(errores), form),
+    }, status_code=status_code)
+
+
+@router.get("/registros")
+def lista(request: Request):
+    return _pagina_lista(request)
 
 
 def _leer_perfiles(form) -> tuple[list[dict], list[str]]:
@@ -78,8 +96,21 @@ def _leer_perfiles(form) -> tuple[list[dict], list[str]]:
         datos = {"nombre_perfil_id": a_uuid(form.get(f"p{i}_nombre")), "hc": a_entero(hc),
                  "dedicacion_pct": a_entero(form.get(f"p{i}_ded")) or 100, "tarifa_hora_centavos": a_centavos(tarifa),
                  "fecha_ingreso": a_fecha(ingreso), "fecha_fin": a_fecha(form.get(f"p{i}_fin"))}
-        if datos["hc"] is None or datos["tarifa_hora_centavos"] is None or datos["fecha_ingreso"] is None:
-            errores.append(f"Perfil {i}: completa HC y tarifa con números y el ingreso con una fecha válida.")
+        incompleto = False
+        for campo, mensaje in (("hc", "Completa HC con un número entero."),
+                               ("tarifa_hora_centavos", "Completa la tarifa con un número válido."),
+                               ("fecha_ingreso", "Completa el ingreso con una fecha válida.")):
+            if datos[campo] is None:
+                errores.append(f"Perfil {i}: {mensaje}")
+                incompleto = True
+        if incompleto:
+            continue
+        try:
+            Perfil(hc=datos["hc"], dedicacion_pct=datos["dedicacion_pct"],
+                   fecha_ingreso=datos["fecha_ingreso"], fecha_fin=datos["fecha_fin"])
+            TarifaPerfil(tarifa_hora_centavos=datos["tarifa_hora_centavos"], vigente_desde=datos["fecha_ingreso"])
+        except ErrorDominio as error:
+            errores.append(f"Perfil {i}: {error.message}")
             continue
         perfiles.append(datos)
     return perfiles, errores
@@ -107,18 +138,14 @@ def _leer_contrato(form) -> dict | None:
 
 
 def _form_alta(request: Request, form=None, errores=(), status_code=200):
-    siguiente = Period.desde_fecha(date.today()).siguiente().inicio
-    form = form or {"tipo": "OPORTUNIDAD", "p1_hc": "3", "p1_ded": "100", "p1_tarifa": "25.000",
-                    "p1_ingreso": siguiente.isoformat()}
-    return render(request, "registros/nuevo.html", {**_catalogos(request), "form": form, "errores": errores,
-                                                     "max_perfiles": MAX_PERFILES_ALTA}, status_code=status_code)
+    return _pagina_lista(request, form=form, errores=errores, status_code=status_code, abrir_alta=True)
 
 
 @router.get("/registros/nuevo")
 def nuevo(request: Request):
     if request.state.usuario.rol is Rol.EJECUTIVO:
         raise HTTPException(403, "El rol Ejecutivo solo consulta.")
-    return _form_alta(request)
+    return RedirectResponse("/registros?activos=1&nuevo=1", status_code=303)
 
 
 @router.post("/registros/vista-previa")
@@ -171,7 +198,8 @@ async def crear(request: Request):
 
 # -- Ficha ------------------------------------------------------------------------
 
-def ficha(request: Request, registro_id: UUID, error: str | None = None, status_code: int = 200, form=None):
+def ficha(request: Request, registro_id: UUID, error: str | None = None, status_code: int = 200, form=None,
+          errores_campo=None, conflicto=False):
     almacen = request.app.state.almacen
     usuario = request.state.usuario
     registro = almacen.registros.obtener(registro_id)
@@ -194,6 +222,8 @@ def ficha(request: Request, registro_id: UUID, error: str | None = None, status_
         "p_fija": states.probabilidad_fija(registro), "probabilidades": sorted(PROBABILIDADES_VALIDAS_BP - {10_000}),
         "motivos_cierre": list(MotivoCierre), "tipos_bitacora": [t for t in TipoEventoBitacora if t.value != "MIGRACION"],
         "error": error, "ok": request.query_params.get("ok"), "form": form or {}, "hoy": date.today(),
+        "errores_campo": errores_campo or {}, "conflicto": conflicto,
+        "volver": retorno_registros((form or {}).get("volver") or request.query_params.get("volver")),
     }, status_code=status_code)
 
 
@@ -208,8 +238,11 @@ async def _accion(request: Request, registro_id: UUID, hacer, ok: str):
     try:
         hacer(form, request.state.usuario, a_entero(form.get("version")) or 0)
     except ErrorDominio as error:
-        return ficha(request, registro_id, error.message, error.status_sugerido, dict(form))
-    return RedirectResponse(f"/registros/{registro_id}?ok={ok}", status_code=303)
+        campos = errores_por_campo([error.message], form)
+        return ficha(request, registro_id, error.message, error.status_sugerido, dict(form),
+                     errores_campo=campos, conflicto=error.code == "CONFLICTO_VERSION")
+    query = urlencode({"ok": ok, "volver": retorno_registros(form.get("volver"))})
+    return RedirectResponse(f"/registros/{registro_id}?{query}", status_code=303)
 
 
 @router.post("/registros/{registro_id}/editar")

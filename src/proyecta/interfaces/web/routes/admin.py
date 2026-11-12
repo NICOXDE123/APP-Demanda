@@ -9,12 +9,12 @@ from fastapi.responses import RedirectResponse
 
 from proyecta.domain.enums import Rol
 from proyecta.domain.errors import ErrorDominio
-from proyecta.interfaces.web.comun import a_entero, a_fecha, exigir_csrf, exigir_rol, render, texto
+from proyecta.interfaces.web.comun import a_entero, a_fecha, exigir_csrf, exigir_rol, render, texto, errores_por_campo
 
 router = APIRouter(dependencies=[Depends(exigir_csrf)])
 
 
-def _parametros(request: Request, error: str | None = None, status_code: int = 200):
+def _parametros(request: Request, error: str | None = None, status_code: int = 200, form=None):
     almacen = request.app.state.almacen
     return render(request, "parametros.html", {
         "horas": list(reversed(almacen.parametros.listar("horas_mensuales"))),
@@ -24,6 +24,7 @@ def _parametros(request: Request, error: str | None = None, status_code: int = 2
         "otros": [p for p in almacen.parametros.listar()
                   if p.clave not in {"horas_mensuales", "confiabilidad_inicial"}],
         "error": error, "ok": request.query_params.get("ok"),
+        "form": dict(form or {}), "errores_campo": errores_por_campo([error], form or {}) if error else {},
     }, status_code=status_code)
 
 
@@ -41,7 +42,7 @@ async def cambiar_horas(request: Request):
             request.state.usuario, a_entero(form.get("horas")) or 0,
             a_fecha(form.get("desde")) or date.today(), texto(form, "motivo"))
     except ErrorDominio as error:
-        return _parametros(request, error.message, error.status_sugerido)
+        return _parametros(request, error.message, error.status_sugerido, form)
     return RedirectResponse("/parametros?ok=1", status_code=303)
 
 
@@ -55,7 +56,7 @@ async def cambiar_confiabilidad_inicial(request: Request):
             request.state.usuario, valor if valor is not None else -1,
             a_fecha(form.get("desde")) or date.today(), texto(form, "motivo"))
     except ErrorDominio as error:
-        return _parametros(request, error.message, error.status_sugerido)
+        return _parametros(request, error.message, error.status_sugerido, form)
     return RedirectResponse("/parametros?ok=1", status_code=303)
 
 
@@ -72,10 +73,12 @@ def auditoria(request: Request):
     desde, hasta = a_fecha(q.get("desde")), a_fecha(q.get("hasta"))
     codigos = {r.id: r.codigo for r in almacen.registros.listar()}
     eventos = []
+    total_sin_filtros = 0
     for e in almacen.auditoria.todos():
         registro = almacen.registros.obtener(e.registro_id)
         if usuario.rol is Rol.LIDER and (registro is None or registro.owner_id != usuario.id):
             continue
+        total_sin_filtros += 1
         if codigo and codigos.get(e.registro_id, "") != codigo:
             continue
         if campo and campo not in e.campo.lower():
@@ -88,5 +91,6 @@ def auditoria(request: Request):
         eventos.append(e)
     return render(request, "auditoria.html", {
         "eventos": eventos[:500], "total": len(eventos), "codigos": codigos, "usuarios": almacen.usuarios.listar(),
+        "total_sin_filtros": total_sin_filtros,
         "q": {"codigo": codigo, "campo": campo, "usuario": autor, "desde": q.get("desde") or "", "hasta": q.get("hasta") or ""},
     })
