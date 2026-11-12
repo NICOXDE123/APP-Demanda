@@ -15,7 +15,7 @@ tests/
 - Las pruebas de una historia se escriben antes de implementarla y deben fallar primero.
 - `C-01` a `C-08` son regresión obligatoria del motor.
 - Cubrir `403` (permisos), `405` (auditoría/bitácora), `409` (versión) y `422` (validación).
-- Usar datos sintéticos; nunca tarifas, clientes ni ingresos reales. 
+- Usar datos sintéticos; nunca tarifas, clientes ni ingresos reales.
 - El dominio debe mantener ≥ 90 % de cobertura (`RNF-013`).
 
 ## Comandos
