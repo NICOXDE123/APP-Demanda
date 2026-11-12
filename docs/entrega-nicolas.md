@@ -136,5 +136,4 @@ No forman parte de esta entrega y corresponden a otros frentes:
   Roberto.
 - Marcar las tareas en `specs/001-proyecta-mvp/tasks.md` después de esa
   revisión.
-- Verificar el import de `permissions.py` cuando esté disponible.
-g
+- Verificar el import de `permissions.py` cuando esté disponible. 
