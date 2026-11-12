@@ -6,3 +6,4 @@ htmlcov/
 .env
 fixture.json
 datos_sinteticos.json
+.agents
