@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% block titulo %}Nuevo registro{% endblock %}
+{% block contenido %}
+<h1 class="h4">Nuevo registro</h1>
+{% if errores %}<div class="alert alert-danger small" role="alert"><strong>No se guardó.</strong>
+  <ul class="mb-0">{% for e in errores %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+<form method="post" action="/registros" class="card card-body" id="alta">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+  <div class="row g-3">
+    <div class="col-12 col-md-3"><label class="form-label" for="tipo">Tipo</label>
+      <select class="form-select" id="tipo" name="tipo">
+        <option value="OPORTUNIDAD" {% if form.tipo == 'OPORTUNIDAD' %}selected{% endif %}>Oportunidad (Pendiente · flujo 1 · P 10 %)</option>
+        <option value="DEMANDA" {% if form.tipo == 'DEMANDA' %}selected{% endif %}>Demanda directa (Adjudicada · P 100 %)</option>
+        {% if rol == 'OPERACIONES' %}<option value="CONTINUIDAD" {% if form.tipo == 'CONTINUIDAD' %}selected{% endif %}>Continuidad (contrato vigente)</option>{% endif %}
+      </select></div>
+    <div class="col-12 col-md-5"><label class="form-label" for="servicio">Servicio o proyecto *</label>
+      <input class="form-control" id="servicio" name="servicio_proyecto" maxlength="200" required value="{{ form.servicio_proyecto or '' }}"></div>
+    <div class="col-6 col-md-2"><label class="form-label" for="ingreso">Fecha de ingreso</label>
+      <input class="form-control" type="date" id="ingreso" name="fecha_ingreso" value="{{ form.fecha_ingreso or '' }}"></div>
+    <div class="col-6 col-md-2"><label class="form-label" for="finv">Fin de vigencia</label>
+      <input class="form-control" type="date" id="finv" name="fecha_fin_vigencia" value="{{ form.fecha_fin_vigencia or '' }}"></div>
+    {% for campo, etiqueta_campo, opciones in [('cliente_id', 'Cliente *', clientes), ('sector_id', 'Sector *', sectores), ('manager_id', 'Manager *', managers)] %}
+    <div class="col-12 col-md-3"><label class="form-label" for="{{ campo }}">{{ etiqueta_campo }}</label>
+      <select class="form-select" id="{{ campo }}" name="{{ campo }}" required><option value="">Elige…</option>
+        {% for c in opciones %}<option value="{{ c.id }}" {% if form[campo] == c.id|string %}selected{% endif %}>{{ c.etiqueta }}</option>{% endfor %}</select></div>
+    {% endfor %}
+    {% if rol == 'OPERACIONES' %}
+    <div class="col-12 col-md-3"><label class="form-label" for="owner_id">Owner (líder)</label>
+      <select class="form-select" id="owner_id" name="owner_id"><option value="">Yo</option>
+        {% for u in lideres %}<option value="{{ u.id }}" {% if form.owner_id == u.id|string %}selected{% endif %}>{{ u.nombre }}</option>{% endfor %}</select></div>
+    {% endif %}
+    <div class="col-12" data-solo-tipo="DEMANDA">
+      <div class="row g-3">
+        <div class="col-12 col-md-3"><label class="form-label" for="flujo">Flujo</label>
+          <select class="form-select" id="flujo" name="flujo">{% for f in flujos[2:5] %}<option value="{{ f.value }}" {% if form.flujo == f.value %}selected{% endif %}>{{ f|etiqueta }}</option>{% endfor %}</select></div>
+        <div class="col-6 col-md-3"><label class="form-label" for="fadj">Fecha de adjudicación</label>
+          <input class="form-control" type="date" id="fadj" name="fecha_adjudicacion" value="{{ form.fecha_adjudicacion or '' }}"></div>
+        <div class="col-12 col-md-6"><label class="form-label" for="motivo">Motivo de demanda directa *</label>
+          <input class="form-control" id="motivo" name="motivo" maxlength="500" value="{{ form.motivo or '' }}"></div>
+      </div>
+    </div>
+    <fieldset class="col-12" data-solo-tipo="CONTINUIDAD"><legend class="h6">Ficha de contrato</legend>
+      <div class="row g-3">
+        <div class="col-6 col-md-3"><label class="form-label" for="c_codigo">Código de contrato *</label>
+          <input class="form-control" id="c_codigo" name="c_codigo" maxlength="40" value="{{ form.c_codigo or '' }}"></div>
+        <div class="col-6 col-md-2"><label class="form-label" for="c_inicio">Inicio</label>
+          <input class="form-control" type="date" id="c_inicio" name="c_inicio" value="{{ form.c_inicio or '' }}"></div>
+        <div class="col-6 col-md-2"><label class="form-label" for="c_fin">Fin (vacío = indefinido)</label>
+          <input class="form-control" type="date" id="c_fin" name="c_fin" value="{{ form.c_fin or '' }}"></div>
+        <div class="col-6 col-md-3"><label class="form-label" for="c_monto">Monto mensual (CLP)</label>
+          <input class="form-control" id="c_monto" name="c_monto" inputmode="numeric" value="{{ form.c_monto or '' }}" placeholder="vacío = desde los perfiles"></div>
+        <div class="col-6 col-md-2"><label class="form-label" for="c_hc">HC comprometido</label>
+          <input class="form-control" id="c_hc" name="c_hc" type="number" min="0" max="999" value="{{ form.c_hc or '' }}"></div>
+      </div>
+    </fieldset>
+    <div class="col-12"><label class="form-label" for="obs">Observaciones</label>
+      <textarea class="form-control" id="obs" name="observaciones" rows="2" maxlength="2000">{{ form.observaciones or '' }}</textarea>
+      <div class="small-help">Las observaciones no reemplazan la bitácora (FR-010).</div></div>
+  </div>
+
+  <h2 class="h6 mt-3">Perfiles <span class="small-help">(HC 1–999, dedicación 1–100 %, tarifa en CLP por hora; filas vacías se ignoran)</span></h2>
+  <div class="tabla-scroll"><table class="table table-sm small align-middle">
+    <thead><tr><th>#</th><th>Perfil</th><th>HC</th><th>Dedicación %</th><th>Tarifa CLP/h</th><th>Ingreso</th><th>Fin (primer día sin actividad)</th></tr></thead>
+    <tbody>{% for i in range(1, max_perfiles + 1) %}<tr><td>{{ i }}</td>
+      <td><select class="form-select form-select-sm" name="p{{ i }}_nombre" aria-label="Perfil {{ i }}"><option value="">—</option>
+        {% for c in nombres_perfil %}<option value="{{ c.id }}" {% if form['p' ~ i ~ '_nombre'] == c.id|string %}selected{% endif %}>{{ c.etiqueta }}</option>{% endfor %}</select></td>
+      <td><input class="form-control form-control-sm" name="p{{ i }}_hc" type="number" min="1" max="999" aria-label="HC perfil {{ i }}" value="{{ form['p' ~ i ~ '_hc'] or '' }}"></td>
+      <td><input class="form-control form-control-sm" name="p{{ i }}_ded" type="number" min="1" max="100" aria-label="Dedicación perfil {{ i }}" value="{{ form['p' ~ i ~ '_ded'] or '' }}"></td>
+      <td><input class="form-control form-control-sm" name="p{{ i }}_tarifa" inputmode="decimal" aria-label="Tarifa perfil {{ i }}" value="{{ form['p' ~ i ~ '_tarifa'] or '' }}"></td>
+      <td><input class="form-control form-control-sm" name="p{{ i }}_ingreso" type="date" aria-label="Ingreso perfil {{ i }}" value="{{ form['p' ~ i ~ '_ingreso'] or '' }}"></td>
+      <td><input class="form-control form-control-sm" name="p{{ i }}_fin" type="date" aria-label="Fin perfil {{ i }}" value="{{ form['p' ~ i ~ '_fin'] or '' }}"></td></tr>{% endfor %}</tbody>
+  </table></div>
+  <div id="vista-previa" class="border rounded p-2 mb-3 bg-body-tertiary" hx-post="/registros/vista-previa"
+       hx-include="#alta" hx-trigger="load, input delay:400ms from:#alta, change from:#alta" hx-swap="innerHTML"><span class="small text-secondary">La vista previa del cálculo aparece al completar un perfil.</span></div>
+  <div><button class="btn btn-primary">Guardar registro</button> <a class="btn btn-link" href="/registros">Cancelar</a></div>
+</form>
+{% endblock %}

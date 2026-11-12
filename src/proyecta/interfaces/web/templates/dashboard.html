@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% block titulo %}Dashboard{% endblock %}
+{% block cabeza %}<script src="/static/vendor/chart.umd.min.js" defer></script>{% endblock %}
+{% block contenido %}
+<h1 class="h4">Dashboard ejecutivo <span class="fs-6 text-secondary">· {{ filtros.meses }} meses desde {{ filtros.periodo|mes }}</span></h1>
+{% set accion = '/' %}{% include '_filtros.html' %}
+{% set q = filtros.a_query() %}
+{% set k = kpi %}
+<div class="row g-2 mb-3" role="list" aria-label="Indicadores">
+  {% for nombre, valor, enlace, ayuda in [
+    ('Forecast', k.forecast|pesos, '/registros?' ~ q, 'Backlog contractual + MAB'),
+    ('MAB', k.mab|pesos, '/registros?' ~ q, 'Base × probabilidad × confiabilidad'),
+    ('Backlog contractual', k.backlog|pesos, '/registros?' ~ filtros.a_query(tipo='CONTINUIDAD'), 'Continuidades vigentes'),
+    ('Backlog confirmado', k.confirmado|pesos, '/registros?' ~ filtros.a_query(confirmado='1'), 'Vista de la MAB con P = 100 %'),
+    ('Ingresos potenciales', k.potencial|pesos, '/registros?' ~ q, 'Base sin ponderar + Backlog'),
+    ('Meta', k.meta|pesos, '#sectores', 'Suma de metas por sector'),
+    ('Gap', k.gap|pesos, '#sectores', ('Cobertura ' ~ (k.cobertura_bp|pct)) if k.cobertura_bp is not none else 'Sin meta'),
+    ('HC proyectado', k.hc_inicio ~ ' → ' ~ k.hc_fin, '/registros?' ~ q, 'Cierre del primer y último mes'),
+    ('Oportunidades activas', k.oportunidades, '/registros?' ~ filtros.a_query(tipo='OPORTUNIDAD', estado='PENDIENTE'), 'Pendientes'),
+    ('Demandas confirmadas', k.demandas, '/registros?' ~ filtros.a_query(tipo='DEMANDA', activos='1'), 'Adjudicadas o en curso'),
+    ('Probabilidad media', k.probabilidad_bp|pct, '/registros?' ~ q, 'Ponderada por la Base'),
+    ('Confiabilidad media', k.confiabilidad_bp|pct, '/registros?' ~ q, 'Ponderada por la Base'),
+  ] %}
+  <div class="col-6 col-md-4 col-xl-2" role="listitem">
+    <a class="kpi card card-body py-2" href="{{ enlace }}">
+      <span class="small text-secondary">{{ nombre }}</span>
+      <span class="valor">{{ valor }}</span>
+      <span class="small-help">{{ ayuda }}</span>
+    </a>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-12 col-xl-7"><div class="card card-body">
+    <h2 class="h6">Forecast mensual vs. meta</h2>
+    <div class="grafico"><canvas id="grafico" role="img" aria-label="Gráfico de barras apiladas de Backlog contractual y MAB por mes, con la meta como línea; los valores están en la tabla contigua."></canvas></div>
+    <script type="application/json" id="datos-grafico">{{ grafico|safe }}</script>
+  </div></div>
+  <div class="col-12 col-xl-5"><div class="card card-body">
+    <h2 class="h6">Serie mensual</h2>
+    <div class="tabla-scroll"><table class="table table-sm small mb-0">
+      <thead><tr><th>Mes</th><th class="num">Backlog</th><th class="num">MAB</th><th class="num">Forecast</th><th class="num">Meta</th><th class="num">HC</th></tr></thead>
+      <tbody>{% for m in meses %}<tr><td>{{ m.mes|mes }}</td><td class="num">{{ m.backlog_clp|pesos }}</td><td class="num">{{ m.mab_clp|pesos }}</td>
+        <td class="num fw-semibold">{{ m.forecast_clp|pesos }}</td><td class="num">{{ meta_mes[m.mes]|pesos }}</td><td class="num">{{ m.hc }}</td></tr>{% endfor %}</tbody>
+      <tfoot><tr class="fw-semibold"><td>Total</td><td class="num">{{ k.backlog|pesos }}</td><td class="num">{{ k.mab|pesos }}</td>
+        <td class="num">{{ k.forecast|pesos }}</td><td class="num">{{ k.meta|pesos }}</td><td></td></tr></tfoot>
+    </table></div>
+  </div></div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-12 col-lg-6" id="sectores"><div class="card card-body">
+    <h2 class="h6">Por sector · meta y gap</h2>
+    <div class="tabla-scroll"><table class="table table-sm small mb-0">
+      <thead><tr><th>Sector</th><th class="num">Registros</th><th class="num">Forecast</th><th class="num">Meta</th><th class="num">Gap</th></tr></thead>
+      <tbody>{% for g in por_sector %}{% set meta_s = meta_sector.get(g.clave, 0) %}
+        <tr><td><a href="/registros?{{ filtros.a_query(sector=g.clave) }}">{{ cat(g.clave) }}</a></td><td class="num">{{ g.registros }}</td>
+          <td class="num">{{ g.forecast|pesos }}</td><td class="num">{{ meta_s|pesos }}</td>
+          <td class="num {% if meta_s - g.forecast > 0 %}text-danger{% else %}text-success{% endif %}">{{ (meta_s - g.forecast)|pesos }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    <p class="small-help mb-0 mt-1">Gap positivo es brecha; negativo, exceso sobre la meta.</p>
+  </div></div>
+  <div class="col-12 col-lg-6"><div class="card card-body">
+    <h2 class="h6">Por responsable (owner)</h2>
+    <div class="tabla-scroll"><table class="table table-sm small mb-0">
+      <thead><tr><th>Owner</th><th class="num">Registros</th><th class="num">MAB</th><th class="num">Forecast</th></tr></thead>
+      <tbody>{% for g in por_owner %}<tr><td><a href="/registros?{{ filtros.a_query(owner=g.clave) }}">{{ nombre_usuario(g.clave) }}</a></td>
+        <td class="num">{{ g.registros }}</td><td class="num">{{ g.mab|pesos }}</td><td class="num">{{ g.forecast|pesos }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    <h2 class="h6 mt-3">Principales clientes</h2>
+    <div class="tabla-scroll"><table class="table table-sm small mb-0">
+      <tbody>{% for g in por_cliente %}<tr><td><a href="/registros?{{ filtros.a_query(cliente=g.clave) }}">{{ cat(g.clave) }}</a></td>
+        <td class="num">{{ g.registros }} reg.</td><td class="num">{{ g.forecast|pesos }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+  </div></div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-12 col-lg-6"><div class="card card-body">
+    <h2 class="h6">Pipeline por estado</h2>
+    <table class="table table-sm small mb-3"><tbody>{% for g in por_estado %}
+      <tr><td><a href="/registros?{{ filtros.a_query(estado=g.clave) }}">{{ g.clave|etiqueta }}</a></td><td class="num">{{ g.registros }}</td><td class="num">{{ g.forecast|pesos }}</td></tr>{% endfor %}</tbody></table>
+    <h2 class="h6">Pipeline por flujo</h2>
+    <table class="table table-sm small mb-0"><tbody>{% for g in por_flujo|sort(attribute='clave') %}
+      <tr><td><a href="/registros?{{ filtros.a_query(flujo=g.clave) }}">{{ g.clave|etiqueta }}</a></td><td class="num">{{ g.registros }}</td><td class="num">{{ g.mab|pesos }}</td></tr>{% endfor %}</tbody></table>
+  </div></div>
+  <div class="col-12 col-lg-6"><div class="card card-body">
+    <h2 class="h6">Alertas</h2>
+    <h3 class="h6 small fw-semibold mt-1">Próximos ingresos (30 / 60 / 90 días)</h3>
+    {% if proximos %}<ul class="small mb-2">{% for x in proximos[:12] %}
+      <li><span class="badge text-bg-{{ 'danger' if x.tramo == 30 else 'warning' if x.tramo == 60 else 'secondary' }}">{{ x.tramo }} d</span>
+        <a href="/registros/{{ x.r.id }}">{{ x.r.codigo }}</a> · {{ x.r.servicio_proyecto }} · {{ x.fecha|fecha }}</li>{% endfor %}</ul>
+    {% else %}<p class="small text-secondary">Sin ingresos en los próximos 90 días.</p>{% endif %}
+    <h3 class="h6 small fw-semibold">Contratos por vencer o vencidos</h3>
+    {% if contratos %}<ul class="small mb-2">{% for x in contratos %}
+      <li><span class="badge text-bg-{{ 'danger' if x.dias < 30 else 'warning' }}">{{ x.estado }}</span>
+        <a href="/registros/{{ x.r.id }}">{{ x.c.codigo_contrato }}</a> · vence {{ x.c.fecha_fin|fecha }}</li>{% endfor %}</ul>
+    {% else %}<p class="small text-secondary">Sin contratos que venzan en 90 días.</p>{% endif %}
+    <h3 class="h6 small fw-semibold">Liberaciones de perfiles (90 días)</h3>
+    {% if liberaciones %}<ul class="small mb-2">{% for x in liberaciones %}
+      <li><a href="/registros/{{ x.r.id }}">{{ x.r.codigo }}</a> · {{ cat(x.p.nombre_perfil_id) }} · {{ x.p.hc }} HC · fin {{ x.p.fecha_fin|fecha }}</li>{% endfor %}</ul>
+    {% else %}<p class="small text-secondary">Sin liberaciones en 90 días.</p>{% endif %}
+    <h3 class="h6 small fw-semibold">Calidad del dato</h3>
+    <p class="small mb-0">{{ k.sin_perfiles }} registro(s) activo(s) sin perfiles.
+      <span class="text-secondary">El semáforo completo (US7) llega en la Entrega 3.</span></p>
+  </div></div>
+</div>
+{% endblock %}

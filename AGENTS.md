@@ -10,7 +10,7 @@ Proyecta implements demand and revenue forecasting in `src/proyecta/`:
 - `interfaces/`: FastAPI routes and web templates under `interfaces/web/templates/`.
 - `seed/`: synthetic data generators and demo fixtures.
 
-Tests live in `tests/unit/domain/` and `tests/integration/`. Supporting requirements, team ownership, architecture decisions, and demo instructions live in `docs/`. Read `src/proyecta/README.md`, `tests/README.md`, and `docs/equipo.md` before changing their areas. Some documentation references `specs/`, which is absent from this checkout.
+Tests live in `tests/unit/domain/` and `tests/integration/`. Supporting requirements, team ownership, architecture decisions, and demo instructions live in `docs/`. Read `src/proyecta/README.md`, `tests/README.md`, and `docs/equipo.md` before changing their areas. The specification lives in `specs/001-proyecta-mvp/` and the requirements in `docs/fuentes/requerimientos.md`.
 
 ## Build, Test, and Development Commands
 
@@ -22,7 +22,7 @@ Run from the repository root with Python 3.12 as the documented target:
 - `python -m pytest tests --cov=proyecta.domain --cov-fail-under=90`: check domain coverage; requires `pytest-cov`.
 - `python scripts/seed_synthetic.py --fixture four-records --salida fixture.json`: generate the demo fixture.
 
-Install `pytest` before testing. `tests/conftest.py` adds `src/` to the import path. No dependency manifest, build command, or runnable server entry point is currently provided.
+Install with `pip install -e '.[dev]'` (`pyproject.toml`). Run the app with `uvicorn proyecta.main:app --reload` and build the image with `docker build -f deploy/Dockerfile -t proyecta .`. Persistence is in memory (`infrastructure/memoria.py`) until the Datastore adapters exist.
 
 ## Coding Style & Naming Conventions
 

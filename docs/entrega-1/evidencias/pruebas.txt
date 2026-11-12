@@ -1,0 +1,33 @@
+# Salida de las pruebas del primer incremento
+# Fecha: 29-10-2026 19:45 (hora de Chile) · rama entrega-1
+# Comando: pytest -v (Python 3.12.3)
+
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.1.1, pluggy-1.7.0 -- .venv/bin/python
+rootdir: .
+configfile: pyproject.toml
+testpaths: tests
+plugins: anyio-4.15.1
+collecting ... collected 19 items
+
+tests/integration/test_incremento.py::test_health PASSED                 [  5%]
+tests/integration/test_incremento.py::test_la_portada_muestra_lo_que_calcula_el_motor PASSED [ 10%]
+tests/integration/test_incremento.py::test_vista_previa_muestra_base_y_mab_antes_de_guardar PASSED [ 15%]
+tests/integration/test_incremento.py::test_valida_en_el_servidor PASSED  [ 21%]
+tests/integration/test_incremento.py::test_crear_guarda_audita_y_la_auditoria_no_se_edita_ni_se_borra PASSED [ 26%]
+tests/integration/test_incremento.py::test_el_texto_del_usuario_no_se_ejecuta PASSED [ 31%]
+tests/unit/domain/test_engine_cases.py::test_c01_oportunidad PASSED      [ 36%]
+tests/unit/domain/test_engine_cases.py::test_c02_adjudicada_al_100 PASSED [ 42%]
+tests/unit/domain/test_engine_cases.py::test_c03_perfiles_seleccionados PASSED [ 47%]
+tests/unit/domain/test_engine_cases.py::test_c04_dos_perfiles PASSED     [ 52%]
+tests/unit/domain/test_engine_cases.py::test_c05_ingreso_a_mitad_de_mes PASSED [ 57%]
+tests/unit/domain/test_engine_cases.py::test_c06_continuidad_suma_backlog_contractual PASSED [ 63%]
+tests/unit/domain/test_engine_cases.py::test_c07_gap_y_cobertura PASSED  [ 68%]
+tests/unit/domain/test_engine_cases.py::test_c08_cambio_de_confiabilidad PASSED [ 73%]
+tests/unit/domain/test_engine_rounding.py::test_el_fin_es_el_primer_dia_sin_actividad PASSED [ 78%]
+tests/unit/domain/test_engine_rounding.py::test_redondeo_half_up_por_registro_mes_y_totales_con_valores_redondeados PASSED [ 84%]
+tests/unit/domain/test_engine_rounding.py::test_horas_y_tarifas_con_vigencia_no_reescriben_meses_anteriores PASSED [ 89%]
+tests/unit/domain/test_engine_rounding.py::test_standby_cerrada_y_cancelada_salen_del_calculo PASSED [ 94%]
+tests/unit/domain/test_engine_rounding.py::test_forecast_suma_backlog_contractual_y_mab_sin_doble_conteo PASSED [100%]
+
+============================== 19 passed in 0.28s ==============================

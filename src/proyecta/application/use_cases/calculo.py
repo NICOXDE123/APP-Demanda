@@ -96,9 +96,12 @@ class CalcularProyeccion:
         periodo: Period | str | None = None,
         meses: int = 12,
         filtros: FiltrosProyeccion | None = None,
+        registros: Sequence[Registro] | None = None,
     ) -> ResultadoProyeccion:
+        """``registros`` permite calcular sobre un subconjunto ya filtrado (dashboard, FR-048)."""
         periodo = self._resolver_periodo(periodo)
-        entradas = [self._entrada(registro) for registro in self._listar(filtros)]
+        visibles = self._listar(filtros) if registros is None else registros
+        entradas = [self._entrada(registro) for registro in visibles]
         return self.motor.calcular_proyeccion(
             entradas, periodo, meses, parametros=self._parametros()
         )

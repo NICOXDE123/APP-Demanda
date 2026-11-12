@@ -1,7 +1,7 @@
 # Proyecta — Documento oficial de requerimientos
 
-**Versión:** 1.0  
-**Fecha:** 27 de octubre de 2026  
+**Versión:** 1.1  
+**Fecha:** 29 de octubre de 2026  
 **Estado:** Para validación con el sponsor  
 **Proyecto:** Proyecta — APP Gestión de la Demanda y Oportunidades  
 **Iniciativa:** Build & Impact 2026 · Fundación NTT DATA Chile  
@@ -21,16 +21,17 @@
 | Versión | Fecha | Autor | Cambio |
 |---|---|---|---|
 | 1.0 | 27-10-2026 | Alfredo San Juan (PO) | Consolidación de las cinco fuentes, resolución de discrepancias y definición del alcance oficial |
+| 1.1 | 29-10-2026 | Matías Mcintire | Incorpora las resoluciones H-01 a H-07 de la sesión del 27-10 (Anexo A, A-21 a A-27): 100 % al adjudicar (reemplaza D-04/RN-30), prorrateo por motivo, lista amplia de motivos, horas con vigencia mensual, sin migración real en el MVP, vigencia mensual de P y C, y Backlog confirmado como vista de la MAB. Actualiza C-02, C-08, AC-02 y AC-14 (T167). Además: seudonimiza los clientes reales; alinea `Cerrada` por motivo, RN-08, RN-28 y A-17; aclara la representación de porcentajes; retira los enlaces a fuentes no versionadas |
 
 ### 0.2. Fuentes utilizadas
 
 | Fuente | Qué aporta | Uso en este documento |
 |---|---|---|
-| [Octubre26.SemanaX.Demanda.GDN_Plantilla.xlsx](Octubre26.SemanaX.Demanda.GDN_Plantilla.xlsx) | Estructura real de campos, catálogos históricos, formato CLP y lógica mensual del cliente | Verdad para campos, catálogos, formatos y datos de partida |
+| `Octubre26.SemanaX.Demanda.GDN_Plantilla.xlsx` (no versionado: contiene datos reales del cliente; lo custodia el PO) | Estructura real de campos, catálogos históricos, formato CLP y lógica mensual del cliente | Verdad para campos, catálogos, formatos y datos de partida |
 | [Onepage-desafio.pdf](Onepage-desafio.pdf) | Alcance del desafío, 9 funcionalidades obligatorias, 11 datos del dashboard, fórmula MAB y glosario | Verdad para alcance del MVP y definiciones del producto |
 | [reunion_mejorada.md](reunion_mejorada.md) | Minuta del levantamiento: conceptos, campos, probabilidades, Staffing/Invoicing | Verdad para reglas de operación y vocabulario del negocio |
 | [resumen_transcripcion_reunion.md](resumen_transcripcion_reunion.md) | Transcripción analítica: definiciones del sponsor, problemática de Invoicing y catálogos | Verdad para reglas de negocio y casuística |
-| [Heavy-Duty_APPGestionDeLaDemanda_V3.pdf](Heavy-Duty_APPGestionDeLaDemanda_V3.pdf) | Propuesta técnica del equipo: arquitectura, perfiles, auditoría, calidad, IA y plan | Base de la solución propuesta y de los aportes del equipo |
+| `Heavy-Duty_APPGestionDeLaDemanda_V3.pdf` (no versionado: incluye CV y datos de contacto del equipo; lo custodia el PO) | Propuesta técnica del equipo: arquitectura, perfiles, auditoría, calidad, IA y plan | Base de la solución propuesta y de los aportes del equipo |
 
 ### 0.3. Convenciones
 
@@ -40,7 +41,8 @@
 - Los identificadores son `RF-xx` (requerimiento funcional), `RNF-xx` (no funcional), `RN-xx` (regla de negocio), `AC-xx` (criterio de aceptación) y `D-xx` (decisión de consolidación).
 - Un **mes** se identifica siempre como `YYYY-MM`; nunca por nombre suelto.
 - Los montos se expresan en **CLP enteros**; las tarifas en **CLP/hora** con hasta dos decimales.
-- Los porcentajes se almacenan como decimal `0,00–1,00` y se muestran como `0 %–100 %`.
+- Los porcentajes se representan como decimal `0,00–1,00` y se muestran como `0 %–100 %`; la persistencia puede guardarlos como entero en puntos base (`0–10.000`) sin pérdida de precisión.
+- Los clientes reales se muestran seudonimizados (`Cliente A`, `Cliente B`, `Cliente C`); la correspondencia está en la plantilla original, que custodia el PO.
 
 ---
 
@@ -53,7 +55,7 @@ El problema central está descrito en el OnePage: la captura manual genera error
 Este documento consolida las cinco fuentes y fija las decisiones que resuelven sus discrepancias. Las principales son:
 
 1. **Modelo híbrido**: se conservan `Tipo`, `Estado` y `Flujo` del Excel, con un catálogo de seis etapas comerciales y un registro único que no se recaptura al adjudicarse.
-2. **Probabilidad**: catálogo configurable con los valores históricos del Excel, regla de 90 % por defecto para una oportunidad adjudicada y 100 % obligatorio al confirmar perfiles.
+2. **Probabilidad**: catálogo configurable con los valores históricos del Excel, 100 % fijo al adjudicar y al confirmar perfiles (H-01, v1.1).
 3. **Perfiles**: cada registro tiene uno o más perfiles con HC, dedicación, tarifa y fechas; la grilla mensual de altas, bajas y cierre se calcula y admite ajustes con motivo.
 4. **Cálculo**: 180 horas mensuales, CLP y 12 meses móviles. Los montos del Excel, calculados implícitamente con 163 horas, se recalculan y suben 10,43 %.
 5. **Dos bolsas y una vista**: Backlog contractual (continuidad) y MAB (todo el pipeline, con la demanda confirmada al 100 % de probabilidad). El Backlog confirmado es una vista de la MAB, no se suma aparte: `Forecast = Backlog contractual + MAB`, y la confiabilidad sigue aplicándose.
@@ -92,7 +94,7 @@ Hallazgos que condicionan el modelo:
 3. **Grilla mensual ambigua**: los encabezados `feb…dic` no tienen año y luego aparece `Ene26…Mar27`, con duplicación de ene–oct 2026. Además hay errores `Agos20-Altas`, `Oct26-Bajas2`, `Diciembre 27` y `Enero 26`.
 4. **Columnas duplicadas o incompletas**: `creacion` (A) y `Creación` (S) conviven; A está vacía en los registros y tiene fechas sueltas en A108:A156. `Owner`, `ID Mana` y `En Staffing` están vacías; `Cuenta` solo tiene «No Aplica»; `Flujo` tiene un único valor; las columnas mensuales tienen altas y bajas en tres registros.
 5. **Métricas no definidas**: `Hot Mab` tiene valores fijos (0; 8.802.000; 14.140.250) sin fórmula; `Ingreso Ponderado` apunta a celdas vacías y devuelve 0. No son reproducibles ni auditables.
-6. **Calidad de datos**: `Estado = Cerrada` convive con 8 altas de HC; `Adjudicada` convive con probabilidad 100 %; hay fechas inválidas (`23-07-20206`, `28-06.2026`) y nombres duplicados (`Jesus Díaz`/`Jesus Diaz`, `Telco`/`Telecom`, `Si`/`Sí`).
+6. **Calidad de datos**: `Estado = Cerrada` convive con 8 altas de HC; `Adjudicada` convive con probabilidad 100 % (práctica que la v1.1 adopta como regla, H-01); hay fechas inválidas (`23-07-20206`, `28-06.2026`) y nombres duplicados (`Jesus Díaz`/`Jesus Diaz`, `Telco`/`Telecom`, `Si`/`Sí`).
 
 ### 2.3. Hallazgos sobre el OnePage
 
@@ -132,9 +134,9 @@ Las siguientes decisiones son la base del documento. Cada una indica qué fuente
 | **D-01** | Modelo híbrido: `Tipo` (Oportunidad, Demanda, Continuidad) + `Estado` operativo + `Flujo` comercial de seis etapas. Un solo registro que no se recaptura al adjudicarse. | El Excel separa Tipo, Estado y Flujo; la propuesta usa un pipeline único. El híbrido conserva la operación y agrega control. | Modelo de datos con tres campos y reglas de consistencia entre ellos. |
 | **D-02** | `Estado`: Pendiente, Adjudicada, En Curso, StandBy, Cerrada y Cancelada. Si es Cerrada o Cancelada, se exige `motivo_cierre`. | El Excel tiene esos estados (más Pendiente, Confirmada y SandBy); la propuesta agrega Pérdida y Desestimada como estados. Se resuelven como motivos de cierre. | Catálogo de seis estados y un catálogo de motivos; análisis de conversión por motivo. |
 | **D-03** | `Flujo` de seis etapas: Pendiente RFP, Propuesta en curso, Propuesta entregada, Pendiente candidatos, Validando candidatos y Perfiles seleccionados. | La reunión pide seis etapas y nombra cinco; la sexta se toma de la propuesta y del hito del 100 %. | Etapa 6 obliga probabilidad 100 % y muestra el registro como Backlog confirmado. |
-| **D-04** | Probabilidad: catálogo configurable con los valores históricos del Excel (5, 10, 12, 20, 25, 30, 50, 75 y 100 %) más 80, 90 y 95 % para el rango de Adjudicada, validada por estado y flujo. Adjudicada nace en 90 % (rango 80–95 %); 100 % obligatorio en Perfiles seleccionados. | Concilia los cinco niveles de la reunión, los nueve valores del Excel y los rangos de la propuesta. | Una sola regla verificable; se elimina el uso artificial de 100 % + En Curso. |
+| **D-04** | Probabilidad: catálogo configurable con los valores históricos del Excel (5, 10, 12, 20, 25, 30, 50, 75 y 100 %), validada por estado y flujo. **Enmienda v1.1 (H-01):** Adjudicada queda en 100 % fijo; se retira el rango 80–95 %. Los valores 80, 90 y 95 % se conservan solo para históricos y migración. | Concilia los cinco niveles de la reunión y los nueve valores del Excel; la sesión del 27-10 adopta la práctica del Excel (100 % al adjudicar). | Una sola regla verificable. Requiere validación del sponsor. |
 | **D-05** | Perfiles: uno o más por registro, con HC, dedicación, tarifa y fechas. La grilla Altas/Bajas/Cierre se calcula desde las fechas y admite ajustes con motivo. | El Excel tiene un HC y una tarifa media; la propuesta y el OnePage hablan de perfiles. El híbrido conserva la grilla sin perder el detalle. | Entidad `Perfil`, `TarifaPerfil` y `AjusteHC`; `Tarifa Media` y `HC Actual` pasan a ser calculados. |
-| **D-06** | Horas mensuales: **180 h** para todo el horizonte, como parámetro único con vigencia. | Decisión del 27-10, alineada con el OnePage y la propuesta. | Los montos del Excel suben **+10,43 %** (180/163). El histórico del Excel no será comparable sin recalcular. |
+| **D-06** | Horas mensuales: **180 h** como valor inicial, en un parámetro editable por Operaciones con fecha efectiva y vigencia mensual; un cambio no reescribe meses anteriores (H-04, v1.1). | Decisión del 27-10, alineada con el OnePage y la propuesta. | Los montos del Excel suben **+10,43 %** (180/163). El histórico del Excel no será comparable sin recalcular. |
 | **D-07** | Moneda única **CLP** y horizonte de **12 meses móviles** con vistas de 3, 6 y 12. | El Excel está en CLP y la reunión oficializó CLP; la propuesta usaba USD solo como ejemplo. | Se elimina la multimoneda y la tasa de planificación del MVP. |
 | **D-08** | Backlog: registros `Tipo = Continuidad` con ficha de contrato (inicio, fin, monto mensual comprometido, HC comprometido, renovación y aviso de término). | Decisión del 27-10: módulo completo de Backlog, Meta y Gap. | Nueva sección funcional y nuevos campos; amplía el alcance de la propuesta. |
 | **D-09** | Dos bolsas y una vista: **Backlog contractual** (Continuidad) y **MAB** (todo el pipeline, incluida la demanda confirmada al 100 % de probabilidad). **Backlog confirmado** es una vista de la MAB con P=100, no una bolsa que se sume aparte. `Forecast = Backlog contractual + MAB`. La confiabilidad sigue aplicándose a la MAB. | La reunión define `Proyección = Backlog + MAB`; el OnePage exige que la confiabilidad siga siendo independiente en una demanda confirmada. | Elimina la «plata mágica» sin doble conteo y sin contradecir la fórmula del desafío. |
@@ -142,7 +144,7 @@ Las siguientes decisiones son la base del documento. Cada una indica qué fuente
 | **D-11** | `Continuidad` = contrato o proyecto vigente que sigue facturando; es el Backlog operativo y no compite ni se pondera. | Decisión del 27-10 y definición de Backlog de la reunión. | `Tipo = Continuidad` exige ficha de contrato y estado En Curso. |
 | **D-12** | Se retiran `Hot Mab` e `Ingreso Ponderado` como métricas del producto. Se reemplazan por MAB, Backlog y Forecast. | No tienen fórmula reproducible en el Excel y no están en el OnePage. | El dashboard no muestra métricas heredadas sin definición. |
 | **D-13** | Una sola `fecha_creacion`; se conservan `Manager` (gerente de cuenta) y `Owner` (responsable del seguimiento) como campos distintos. | El Excel duplica la fecha y distingue ambos roles; la propuesta los confunde en «responsable». | Modelo más fiel y reportes por gerente y por owner. |
-| **D-14** | Normalización de catálogos: sectores, managers y clientes con duplicados se unifican con una tabla de equivalencias. | Los catálogos históricos tienen duplicados (`Telco`/`Telecom`, `Jesus Díaz`/`Jesus Diaz`, `BCI`/`BCI Chile`). | Catálogos limpios y migración con alias. |
+| **D-14** | Normalización de catálogos: sectores, managers y clientes con duplicados se unifican con una tabla de equivalencias. | Los catálogos históricos tienen duplicados (`Telco`/`Telecom`, `Jesus Díaz`/`Jesus Diaz`, `Cliente B`/`Cliente B Chile`). | Catálogos limpios y migración con alias. |
 | **D-15** | La grilla de 26 meses del Excel se reemplaza por cálculo por fechas y una vista mensual de 12 meses; los meses cerrados se conservan en los cortes. | Los encabezados son ambiguos y duplican meses; el cálculo por fechas es la fuente correcta. | Menos columnas, sin errores de año y con histórico congelado por corte. |
 | **D-16** | Se agregan al alcance el módulo de Backlog, las metas y el gap; se mantienen las 9 funcionalidades del OnePage y la prioridad 2 de la propuesta. | Decisiones del 27-10 y §6 del acta. | Requiere reestimar el plan de 7 semanas; se registra en §15. |
 | **D-17** | El asistente de coherencia con IA se mantiene como prioridad 2 y nunca modifica datos sin aprobación humana. | Aporte de la propuesta y §8 del OnePage. | No bloquea el MVP; se puede demostrar sin IA. |
@@ -424,7 +426,7 @@ erDiagram
 | `auditoria.valor_nuevo` | JSON/Text | No | Valor nuevo serializado |
 | `auditoria.usuario_id` | FK Usuario | Sí | Autor del cambio |
 | `auditoria.fecha_hora` | Timestamp | Sí | UTC; se muestra en America/Santiago |
-| `auditoria.motivo` | String(300) | Condicional | Obligatorio en confiabilidad, cierre, reapertura, tarifa, HC y meta |
+| `auditoria.motivo` | String(300) | Condicional | Obligatorio en estado, tipo, flujo, probabilidad, confiabilidad, cierre, reapertura, tarifa, HC, meta y horas (H-03) |
 | `auditoria.fecha_efectiva` | Date | No | Fecha desde la cual aplica el cambio |
 | `auditoria.mab_antes`, `mab_despues` | Decimal(14,0) | No | Impacto mensual en CLP |
 | `auditoria.forecast_antes`, `forecast_despues` | Decimal(14,0) | No | Impacto en el horizonte |
@@ -506,11 +508,13 @@ erDiagram
 | Código | Etiqueta | Definición | Bolsa | Probabilidad |
 |---|---|---|---|---|
 | `PENDIENTE` | Pendiente | Oportunidad abierta, aún no adjudicada | MAB | Según flujo |
-| `ADJUDICADA` | Adjudicada | El cliente adjudicó; perfiles aún no confirmados | MAB | 90 % (80–95 %) o 100 % |
+| `ADJUDICADA` | Adjudicada | El cliente adjudicó; perfiles aún no confirmados | MAB | 100 % fijo (H-01) |
 | `EN_CURSO` | En Curso | Perfiles incorporados y servicio en ejecución | MAB (P=100) | 100 % |
 | `STANDBY` | StandBy | Detenida temporalmente por el cliente o por NTT DATA | Excluida | Congelada |
-| `CERRADA` | Cerrada | Fin del ciclo; requiere motivo | Excluida | Congelada |
-| `CANCELADA` | Cancelada | Cancelación formal; requiere motivo | Excluida o prorrateada | Congelada |
+| `CERRADA` | Cerrada | Fin del ciclo; requiere motivo | Según el motivo (§8.5, H-02) | Congelada |
+| `CANCELADA` | Cancelada | Cancelación formal; requiere motivo | Según el motivo (§8.5, H-02) | Congelada |
+
+> **Precedencia de la bolsa (H-07):** la bolsa depende del `Tipo`; una `Continuidad` en `En Curso` pertenece al Backlog contractual, no a la MAB (RN-83).
 
 ### 8.3. `Flujo`
 
@@ -528,10 +532,10 @@ erDiagram
 - **RN-05.** Un registro `Pendiente` no puede estar en `Perfiles seleccionados`; primero debe pasar a `Adjudicada`.
 - **RN-06.** `Perfiles seleccionados` exige al menos un perfil con HC ≥ 1 y fecha de ingreso.
 - **RN-07.** Al entrar a `Perfiles seleccionados`, la probabilidad se fija en 100 % y se genera un evento de auditoría.
-- **RN-08.** Si el registro retrocede desde `Perfiles seleccionados`, el líder debe informar una nueva probabilidad dentro del rango del estado; el cambio se audita.
+- **RN-08.** Si el registro retrocede desde `Perfiles seleccionados`, queda en `Adjudicada` y su probabilidad se mantiene en 100 % (H-01); el retroceso exige motivo y se audita.
 - **RN-09.** `Continuidad` usa siempre `Perfiles seleccionados` como flujo; no recorre las etapas comerciales.
 
-**Nota:** la probabilidad sugerida de la tabla aplica a `Pendiente`. En `Adjudicada`, los flujos 1–5 usan 90 % por defecto (rango 80–95 %) y el flujo 6 usa 100 %.
+**Nota:** la probabilidad sugerida de la tabla aplica a `Pendiente`. En `Adjudicada` la probabilidad es 100 % en cualquier flujo (H-01).
 
 ### 8.4. `Probabilidad`
 
@@ -545,18 +549,18 @@ erDiagram
 | 30 % | Valor histórico; se conserva por compatibilidad |
 | 50 % | Propuesta entregada o pendiente de candidatos |
 | 75 % | Validando candidatos |
-| 80 % | Adjudicada, extremo inferior del rango |
-| 90 % | Adjudicada, valor por defecto |
-| 95 % | Adjudicada, extremo superior del rango |
-| 100 % | Perfiles seleccionados o En Curso |
+| 80 % | Valor histórico; solo migración e históricos (H-01) |
+| 90 % | Valor histórico; solo migración e históricos (H-01) |
+| 95 % | Valor histórico; solo migración e históricos (H-01) |
+| 100 % | Adjudicada, Perfiles seleccionados, En Curso o Continuidad |
 
 **Reglas de probabilidad:**
 
 - **RN-10.** `Pendiente`: 5 %–75 %, obligatoriamente un valor del catálogo.
-- **RN-11.** `Adjudicada` con flujo 1–5: 80 %–95 %, por defecto 90 %.
-- **RN-12.** `Adjudicada` con flujo 6, `En Curso` y `Continuidad`: 100 % fijo.
+- **RN-11.** *Superada en v1.1 por H-01.* Antes: `Adjudicada` con flujo 1–5, 80 %–95 %, por defecto 90 %.
+- **RN-12.** `Adjudicada` (cualquier flujo), `En Curso` y `Continuidad`: 100 % fijo (H-01).
 - **RN-13.** `StandBy`, `Cerrada` y `Cancelada`: probabilidad congelada, no editable y fuera de la MAB.
-- **RN-14.** Los valores 80, 90 y 95 % se agregan para el rango de Adjudicada; los valores 5, 12, 20 y 30 % se conservan para no romper la migración.
+- **RN-14.** Los valores 5, 12, 20, 30, 80, 90 y 95 % se conservan para no romper la migración ni los históricos; una `Adjudicada` usa 100 % (H-01).
 - **RN-15.** Operaciones puede desactivar valores del catálogo, pero no borrar los usados.
 
 ### 8.5. `Motivo de cierre`
@@ -622,11 +626,11 @@ Catálogo canónico y equivalencias:
 | Manager | `Jesus Diaz` | `Jesús Díaz` | Alias |
 | Manager | `Carlos Moller` | `Carlos Moller` | Se conserva; validar grafía con el sponsor |
 | Manager | `Pendiente` | Sin asignar | Se exige asignación antes de guardar |
-| Cliente | `BCI`, `BCI Chile` | `BCI` | Alias |
-| Cliente | `Santander`, `Santander Chile` | `Santander Chile` | Alias |
+| Cliente | `Cliente B`, `Cliente B Chile` | `Cliente B` | Alias |
+| Cliente | `Cliente A`, `Cliente A Chile` | `Cliente A Chile` | Alias |
 | Cliente | Espacios iniciales/finales | Recorte | Limpieza |
 | Studio | `Si` | `Sí` / `true` | Normalización |
-| Fecha | `23-07-20206` | Fecha válida o nula | Marcar para revisión |
+| Fecha | `23-07-20206` | Se conserva el valor de origen | Marcar para revisión; no se corrige ni se anula (A-17) |
 | Fecha | `28-06.2026` | `28-06-2026` | Corrección de separador |
 
 ## 9. Reglas de negocio
@@ -670,13 +674,13 @@ stateDiagram-v2
 | Transición | Quién | Condiciones | Efectos |
 |---|---|---|---|
 | Nueva oportunidad → Pendiente | Líder | Tipo Oportunidad | Flujo 1; P 10 %; C 90 % |
-| Nueva demanda directa → Adjudicada | Líder | Tipo Demanda y motivo «Demanda directa» | Flujo 3–5; P 90 %; fecha_adjudicacion |
+| Nueva demanda directa → Adjudicada | Líder | Tipo Demanda y motivo «Demanda directa» | Flujo 3–5; P 100 %; fecha_adjudicacion |
 | Nueva continuidad → En Curso | Operaciones | Tipo Continuidad y ficha de contrato | Flujo 6; P 100 %; C 100 % |
-| Pendiente → Adjudicada | Líder | Fecha de adjudicación; al menos un perfil | Tipo pasa a Demanda; P 90 %; auditoría |
+| Pendiente → Adjudicada | Líder | Fecha de adjudicación; al menos un perfil | Tipo pasa a Demanda; P 100 %; auditoría |
 | Adjudicada → En Curso | Líder | Perfiles con fecha de ingreso; P 100 % | Queda al 100 % y pasa a la vista de Backlog confirmado; auditoría |
 | Cualquiera → StandBy | Líder u Operaciones | Motivo obligatorio | Guarda `estado_previo`; sale del cálculo |
-| Cualquiera → Cerrada | Líder u Operaciones | Motivo de cierre y fecha | Sale del cálculo desde el mes de cierre |
-| Cualquiera → Cancelada | Líder u Operaciones | Motivo y fecha de cancelación | Prorratea hasta la fecha y sale |
+| Cualquiera → Cerrada | Líder u Operaciones | Motivo de cierre y fecha | Según el motivo (§8.5): `TERMINO_SERVICIO` prorratea hasta su fecha; `PERDIDA`, `DESESTIMADA` y `DUPLICADO` salen desde el mes de cierre (H-02) |
+| Cualquiera → Cancelada | Líder u Operaciones | Motivo y fecha de cancelación | Según el motivo (§8.5): `CANCELADA_CLIENTE` prorratea hasta la fecha; `DUPLICADO` sale desde el mes de cierre (H-02) |
 | StandBy → estado previo | Líder u Operaciones | Motivo de reactivación | Restaura estado, P y C previos |
 | Cerrada/Cancelada → Pendiente o Adjudicada | Operaciones | Motivo de reapertura; Oportunidad vuelve a Pendiente y Demanda a Adjudicada | Vuelve al pipeline; auditoría |
 
@@ -704,16 +708,16 @@ stateDiagram-v2
 - **RN-25.** Un registro `Demanda` no puede volver a `Pendiente`; la reapertura de Operaciones lo devuelve a `Adjudicada`.
 - **RN-26.** `Perfiles seleccionados` solo es válido en `Adjudicada` o `En Curso`.
 - **RN-27.** Un registro `Continuidad` no recorre el flujo comercial; su flujo es fijo `Perfiles seleccionados`.
-- **RN-28.** Si el cliente rechaza un perfil, el registro vuelve de `Perfiles seleccionados` a `Adjudicada` o `Validando candidatos` con motivo y nueva probabilidad.
+- **RN-28.** Si el cliente rechaza un perfil, el registro vuelve de `Perfiles seleccionados` a `Adjudicada` o `Validando candidatos` con motivo; la probabilidad se mantiene en 100 % por seguir en `Adjudicada` (H-01).
 
 ### 9.3. Probabilidad y confiabilidad
 
 **Probabilidad:**
 
 - **RN-29.** En `Pendiente`, la probabilidad por defecto se asigna según el flujo: 10 %, 25 %, 50 %, 50 % y 75 % para las etapas 1 a 5. La etapa 6 no es válida en `Pendiente`.
-- **RN-30.** En `Adjudicada` con flujo 1–5, el valor por defecto es 90 % y el rango permitido es 80 %–95 %.
-- **RN-31.** En `Perfiles seleccionados`, `En Curso` y `Continuidad`, la probabilidad es 100 % y no es editable.
-- **RN-32.** El líder puede ajustar la probabilidad dentro del rango del estado; el cambio se audita con valor anterior y nuevo.
+- **RN-30.** *Superada en v1.1 por H-01:* en `Adjudicada` la probabilidad es 100 % fija, en cualquier flujo. Antes: 90 % por defecto, rango 80 %–95 %.
+- **RN-31.** En `Adjudicada`, `Perfiles seleccionados`, `En Curso` y `Continuidad`, la probabilidad es 100 % y no es editable (H-01).
+- **RN-32.** El líder puede ajustar la probabilidad dentro del rango del estado, con motivo y fecha efectiva; el cambio se audita con valor anterior y nuevo y tiene vigencia mensual sin reescribir meses anteriores (H-03, H-06).
 - **RN-33.** Operaciones puede cambiar la probabilidad de cualquier registro con motivo.
 - **RN-34.** La probabilidad de un registro en `StandBy`, `Cerrada` o `Cancelada` queda congelada y no se usa en el cálculo.
 
@@ -865,7 +869,7 @@ Si el perfil no tiene `fin`, se usa el último día del mes. Si el perfil no est
 Base(r,m) = Σ_p [ hc(p) × ded(p) × tarifa(p,m) × H(m) × activo(p,m) ]
 ```
 
-- `H(m)` = 180 para todo el horizonte (parámetro único, sin transición).
+- `H(m)` = horas vigentes en el mes `m` según el parámetro con vigencia mensual; valor inicial 180 (H-04). Un cambio aplica desde el mes de su fecha efectiva y el puente lo informa como efecto parámetros (RN-85).
 - Los montos se calculan en decimal y se redondean al final del registro-mes.
 
 ### 10.4. Bolsas y Forecast
@@ -875,7 +879,7 @@ Base(r,m) = Σ_p [ hc(p) × ded(p) × tarifa(p,m) × H(m) × activo(p,m) ]
 | `Tipo = Continuidad` y estado En Curso | Backlog contractual | `monto_mensual × activo_contrato(m)`; si no hay monto, `Base × 1 × 1` |
 | `Tipo = Demanda` y (`Flujo = Perfiles seleccionados` o estado En Curso) | MAB (vista Backlog confirmado) | `Base(r,m) × 1 × C(r)` |
 | (`Oportunidad` o `Demanda`) y (estado Pendiente o Adjudicada con flujo 1–5) | MAB | `Base(r,m) × P(r) × C(r)` |
-| Estado StandBy, Cerrada o Cancelada | Excluido | 0 desde la fecha de corte; Cancelada y Término prorratean hasta su fecha |
+| Estado StandBy, Cerrada o Cancelada | Excluido | Según el motivo (§8.5, H-02): `CANCELADA_CLIENTE` y `TERMINO_SERVICIO` prorratean hasta su fecha; `PERDIDA`, `DESESTIMADA` y `DUPLICADO` salen desde el mes de cierre; StandBy, 0 desde la pausa |
 
 ```
 MAB(m)                  = Σ_r MAB(r,m)
@@ -945,15 +949,15 @@ Para los registros comunes a ambos cortes:
 | Caso | Datos | Base CLP | P | C | MAB CLP |
 |---|---|---|---:|---:|---:|
 | `C-01` | 3 HC × $2.600 × 180 h | 1.404.000 | 50 % | 90 % | 631.800 |
-| `C-02` | Igual a C-01, en Adjudicada | 1.404.000 | 90 % | 90 % | 1.137.240 |
+| `C-02` | Igual a C-01, en Adjudicada (H-01) | 1.404.000 | 100 % | 90 % | 1.263.600 |
 | `C-03` | Igual a C-02, en Perfiles seleccionados | 1.404.000 | 100 % | 90 % | 1.263.600 |
 | `C-04` | Dos perfiles: 3 × $2.600 + 2 × $2.300 | 2.232.000 | 50 % | 80 % | 892.800 |
 | `C-05` | 4 HC ingresan el 16 de noviembre | 936.000 (15/30 días) | 100 % | 90 % | 842.400 |
 | `C-06` | Continuidad: $45.000.000/mes, ene–jun | 45.000.000/mes | 100 % | 100 % | Backlog 270.000.000 |
 | `C-07` | Meta $1.700 M; Backlog $1.000 M; MAB $500 M | — | — | — | Forecast 1.500 M; Gap 200 M |
-| `C-08` | Base 1.404.000; confiabilidad 90 % → 80 % | 1.404.000 | 90 % | 80 % | 1.010.880 (−126.360) |
+| `C-08` | Igual a C-02; confiabilidad 90 % → 80 % | 1.404.000 | 100 % | 80 % | 1.123.200 (−140.400) |
 
-**Verificación:** `C-08` muestra el impacto de un cambio de confiabilidad: `1.404.000 × 0,90 × 0,80 = 1.010.880`, una reducción de $126.360 al mes.
+**Verificación:** `C-08` muestra el impacto de un cambio de confiabilidad: `1.404.000 × 1,00 × 0,80 = 1.123.200`, una reducción de $140.400 al mes respecto de C-02. En v1.0 usaba P 90 % (1.010.880), valor retirado por H-01.
 
 ---
 
@@ -1190,7 +1194,7 @@ Para los registros comunes a ambos cortes:
 | `S-08` | Cancelación | La cancelación prorratea hasta la fecha y luego sale del cálculo | **Decidido** | PO |
 | `S-09` | Hot Mab | Se retira por no tener fórmula reproducible | **Decidido** | PO |
 | `S-10` | Clientes | El catálogo histórico de 157 clientes se normaliza y se mantiene por Operaciones | **Pendiente** | Operaciones |
-| `S-11` | Migración | Los 4 registros del Excel se migran con revisión manual de inconsistencias | **Pendiente** | PO |
+| `S-11` | Migración | Los 4 registros reales del Excel no se migran en el MVP; la carga inicial usa la estructura de la plantilla con datos sintéticos y la migración real queda para una etapa posterior con revisión de Operaciones (H-05) | **Decidido** | PO |
 | `S-12` | Infraestructura | NTT DATA entrega el proyecto GCP, regiones y permisos | **Pendiente** | NTT DATA |
 | `S-13` | Datos | La demo usa datos sintéticos; no se cargan datos reales | **Decidido** | PO |
 | `S-14` | Cadencia | Dashboard en línea y cierre mensual; no hay cierre semanal obligatorio | **Decidido** | PO |
@@ -1218,16 +1222,18 @@ Para los registros comunes a ambos cortes:
 
 ## 16. Datos iniciales y migración
 
+> **v1.1 (H-05):** la migración de los registros reales queda fuera del MVP. Esta sección describe la etapa posterior; en el MVP solo se carga la estructura de la plantilla con datos sintéticos (§16.4).
+
 ### 16.1. Punto de partida
 
 La plantilla tiene **4 registros con datos** (filas 9–12). El resto de la tabla está vacío; los catálogos históricos se recuperan de la caché de la tabla dinámica. La migración debe preservar el estado, los importes y las fechas, y marcar las inconsistencias en lugar de inventar datos.
 
 | Fila | Servicio | Cliente / sector | Tipo | Estado | P | Tarifa | HC | Creación | Observación |
 |---:|---|---|---|---|---:|---:|---:|---|---|
-| 9 | Consolidación Proveedores | Santander Chile / Banca | Oportunidad | StandBy | 10 % | $2.300 | 0 | 05-03-2026 | Sin HC ni perfil; revisar vigencia |
-| 10 | Tarifario perfiles TI 2025 | BCI / Banca | Oportunidad | Cerrada | 10 % | $2.500 | 0 → 8 (abr) | 26-02-2026 | Cerrada con 8 altas; inconsistencia DQ |
-| 11 | Célula modernización Centro de Negocio | Banco de Chile / Banca | Oportunidad | Adjudicada | 100 % | $2.600 | 2 (jun) | 22-01-2026 | Flujo «Pendiente Go del cliente»; mapear a Perfiles seleccionados |
-| 12 | Servicio Operación Cloud AWS | Santander Chile / Banca | Oportunidad | Cancelada | 10 % | $2.700 | 1 (abr) | 17-02-2026 | Sin fecha de cancelación; revisar |
+| 9 | Consolidación Proveedores | Cliente A Chile / Banca | Oportunidad | StandBy | 10 % | $2.300 | 0 | 05-03-2026 | Sin HC ni perfil; revisar vigencia |
+| 10 | Tarifario perfiles TI 2025 | Cliente B / Banca | Oportunidad | Cerrada | 10 % | $2.500 | 0 → 8 (abr) | 26-02-2026 | Cerrada con 8 altas; inconsistencia DQ |
+| 11 | Célula modernización Centro de Negocio | Cliente C / Banca | Oportunidad | Adjudicada | 100 % | $2.600 | 2 (jun) | 22-01-2026 | Flujo «Pendiente Go del cliente»; mapear a Perfiles seleccionados |
+| 12 | Servicio Operación Cloud AWS | Cliente A Chile / Banca | Oportunidad | Cancelada | 10 % | $2.700 | 1 (abr) | 17-02-2026 | Sin fecha de cancelación; revisar |
 
 **Nota de migración:** al pasar a `Adjudicada`, el registro cambia a `Tipo = Demanda` por RN-24; el flujo «Pendiente Go del cliente» se mapea a `Perfiles seleccionados`; los estados `Cerrada` y `Cancelada` exigen motivo y fecha, que se completan con revisión de Operaciones.
 
@@ -1277,7 +1283,7 @@ La plantilla tiene **4 registros con datos** (filas 9–12). El resto de la tabl
 
 **Dado** un registro en `Pendiente` con probabilidad 50 %,  
 **cuando** el líder lo pasa a `Adjudicada` con fecha de adjudicación,  
-**entonces** el tipo cambia a `Demanda`, la probabilidad pasa a 90 % (rango 80–95 %) y se genera un evento con estado, tipo y probabilidad anteriores y nuevos.
+**entonces** el tipo cambia a `Demanda`, la probabilidad pasa a 100 % (H-01) y se genera un evento con estado, tipo y probabilidad anteriores y nuevos.
 
 ### AC-03 · Perfiles seleccionados al 100 %
 
@@ -1347,9 +1353,9 @@ La plantilla tiene **4 registros con datos** (filas 9–12). El resto de la tabl
 
 ### AC-14 · Migración
 
-**Dado** la plantilla con 4 registros,  
+**Dado** un conjunto sintético con la estructura de la plantilla y 4 registros de prueba (H-05),  
 **cuando** se ejecuta la importación,  
-**entonces** se crean 4 registros, se informan las inconsistencias por fila y los montos se recalculan con 180 h.
+**entonces** se crean 4 registros sintéticos, se informan las inconsistencias por fila y los montos se recalculan con 180 h.
 
 ### AC-15 · Dashboard
 
@@ -1401,7 +1407,7 @@ La plantilla tiene **4 registros con datos** (filas 9–12). El resto de la tabl
 | A-02 | Catálogo de estados | Excel: 8 valores; reunión: 4; propuesta: 7 | 6 estados + motivo de cierre (D-02) | Resuelto |
 | A-03 | Etapas del flujo | Reunión: 6 etapas, 5 nombradas; Excel: sin catálogo | 6 etapas, la sexta es Perfiles seleccionados (D-03) | Resuelto; validar S-02 |
 | A-04 | Valores de probabilidad | Excel: 9 valores; reunión: 5; propuesta: rangos | Catálogo configurable + rangos por estado (D-04) | Resuelto |
-| A-05 | Adjudicada al 100 % | Excel: un registro al 100 %; reunión: 100 % + En Curso; propuesta: 80–95 % | 90 % por defecto, 100 % solo con perfiles (D-04) | Resuelto |
+| A-05 | Adjudicada al 100 % | Excel: un registro al 100 %; reunión: 100 % + En Curso; propuesta: 80–95 % | 100 % al adjudicar (D-04 enmendada, A-21) | Resuelto; validar con sponsor |
 | A-06 | HC y tarifa | Excel: 1 HC y 1 tarifa media; propuesta: N perfiles | Perfiles + grilla derivada (D-05) | Resuelto |
 | A-07 | Horas mensuales | Excel: 163 implícitas; OnePage y propuesta: 180 | 180 h, recálculo total (D-06) | Resuelto; validar S-01 |
 | A-08 | Moneda | Excel y reunión: CLP; propuesta: USD | CLP único (D-07) | Resuelto |
@@ -1411,12 +1417,19 @@ La plantilla tiene **4 registros con datos** (filas 9–12). El resto de la tabl
 | A-12 | Flags de Staffing e Invoicing | Excel y reunión: sí; propuesta: implícitos en estados | Se mantienen como indicadores (D-10) | Resuelto |
 | A-13 | Hot Mab e Ingreso Ponderado | Excel: sin fórmula; OnePage: no los pide | Se retiran (D-12) | Resuelto |
 | A-14 | Campos duplicados | Excel: `creacion` y `Creación`; `Manager` y `Owner` | Una fecha; dos roles distintos (D-13) | Resuelto |
-| A-15 | Catálogos duplicados | Excel: Telco/Telecom, Jesus Díaz/Diaz, BCI/BCI Chile | Normalización con alias (D-14) | Resuelto; validar S-04 |
+| A-15 | Catálogos duplicados | Excel: Telco/Telecom, Jesus Díaz/Diaz, Cliente B/Cliente B Chile | Normalización con alias (D-14) | Resuelto; validar S-04 |
 | A-16 | «Cerrada» con HC | Excel: fila 10 cerrada con 8 altas | Se migra el estado y se marca la inconsistencia | Pendiente S-03 |
-| A-17 | Fechas inválidas | Excel: `23-07-20206`, `28-06.2026` | Se corrigen o se nulan y se marcan | Resuelto en migración |
+| A-17 | Fechas inválidas | Excel: `23-07-20206`, `28-06.2026` | Se preserva el valor de origen y se marca para revisión; no se corrige ni se anula automáticamente (Principio I) | Resuelto; aplica a la migración posterior (H-05) |
 | A-18 | Significado de Continuidad | Excel: tipo; reunión: backlog | Contrato vigente que factura (D-11) | Resuelto |
 | A-19 | Roles | Minuta: 2; transcripción, OnePage y propuesta: 3 | 3 roles (Operaciones, Líder, Ejecutivo) | Resuelto |
 | A-20 | Cadencia | Reunión: dashboard semanal; propuesta: cierre mensual | Dashboard en línea + cierre mensual (D-18) | Resuelto |
+| A-21 | Probabilidad de Adjudicada (H-01) | Resumen §9: 90 % ligado a En Staffing; D-04/RN-30: 90 % al adjudicar; transcripción: 100 % + En Curso | 100 % al adjudicar; se retira el rango 80–95 % (reemplaza D-04 y RN-30) | Resuelto 27-10; validar con sponsor |
+| A-22 | Prorrateo de Cancelada (H-02) | §10.4: toda Cancelada prorratea; §8.5: depende del motivo | Prevalece el motivo: `DUPLICADO` sale desde el mes de cierre; `CANCELADA_CLIENTE` y `TERMINO_SERVICIO` prorratean | Resuelto 27-10 |
+| A-23 | Motivo obligatorio (H-03) | RF-22 y §9.9: lista amplia; §7.7 y RN-32: lista corta | Lista amplia: estado, tipo, flujo, probabilidad, confiabilidad, cierre, reapertura, tarifa, HC, meta y horas | Resuelto 27-10 |
+| A-24 | Horas mensuales (H-04) | §10.3: 180 h sin transición; RN-85: efecto horas en el puente | Parámetro editable con vigencia mensual; 180 h inicial | Resuelto 27-10; validar S-01 |
+| A-25 | Migración real vs. demo (H-05) | RNF-15 y S-13: sin datos reales; §16: migra 4 registros reales | Sin migración real en el MVP; carga sintética | Resuelto 27-10 |
+| A-26 | Vigencia de P y C (H-06) | RN-37: efecto mensual; `Registro`: valor único | Historial con vigencia mensual (`VigenciaEstadoCalculo`) | Resuelto 27-10 |
+| A-27 | Bolsa del Backlog confirmado (H-07) | Resumen: «100 % (Backlog)»; D-09/RN-83: vista de la MAB | Vista de la MAB con P=100 y C aplicada; la Continuidad va al Backlog contractual | Resuelto 27-10 |
 
 ---
 
@@ -1433,10 +1446,10 @@ La plantilla tiene **4 registros con datos** (filas 9–12). El resto de la tabl
 
 | Registro | HC | Tarifa | Monto mensual | Horas implícitas |
 |---|---:|---:|---:|---:|
-| Banco de Chile | 2 | $2.600 | $847.600 | 163,0 |
-| BCI | 8 | $2.500 | $3.260.000 | 163,0 |
-| Santander / AWS | 1 | $2.700 | $440.100 | 163,0 |
-| Santander / Consolidación | 0 | $2.300 | $0 | — |
+| Cliente C | 2 | $2.600 | $847.600 | 163,0 |
+| Cliente B | 8 | $2.500 | $3.260.000 | 163,0 |
+| Cliente A / AWS | 1 | $2.700 | $440.100 | 163,0 |
+| Cliente A / Consolidación | 0 | $2.300 | $0 | — |
 
 **Lectura:** el Excel no declara el parámetro, pero todos los montos son consistentes con 163 h por persona y mes. Proyecta lo reemplaza por 180 h.
 
@@ -1530,7 +1543,7 @@ flowchart TB
 | Arquitectura y seguridad | Matías Mcintire | | |
 | QA y seguridad | Roberto Villouta | | |
 
-**Estado del documento:** v1.0 para validación. Las decisiones `S-01`, `S-02`, `S-03`, `S-04`, `S-05`, `S-06`, `S-10`, `S-11`, `S-12` y `S-15` requieren confirmación antes de la primera carga oficial.
+**Estado del documento:** v1.1 para validación. Las decisiones `S-01`, `S-02`, `S-03`, `S-04`, `S-05`, `S-06`, `S-10`, `S-12` y `S-15` requieren confirmación, y H-01 (A-21) reemplaza D-04 y requiere validación expresa del sponsor.
 
 
 
