@@ -1,0 +1,9 @@
+*globales
+- Al actualizar la meta de un lider esta no debe afectar a las metas anteriores, y debe fijar la nueva meta como default para los meses posteriores.
+- los datos sinteticos de las metas debe ser mayor que el backlog contractual para qeu se vea bien el grfico visualmente.
+- el gap debiese ser un valor delta positivo si se esta sobre la meta y negativo si falta por llegar, suena logico.
+- existe un campo denominado manager, el manager corresponde a un ejecutivo, cada ejecutivo responde a un lider, por lo tanto la informacion que puede ver un ejecutivo corresponde a solo lo de su lider, esta correccion es importantisima
+* Dashboard
+- el grafico solo proyecta hacia el futuro, quiero que como default muestre los ultimos 3 meses (anteriores) y proyecte 3 meses al futuro, con vistas de los ultimos 3 meses, 6 meses. 12 mes, y a futuro 3 y 6 meses.
+- el cuadro serie mensual debe reflejar lo mismo que se está mostrando en el grafico
+- Las tablas siento que concentran mucha informacion que, aunque está resumida, igual saturan la pagina, agrgega una sub pestaña en el dashboard, uno de resumen financiero, donde se muestren la grilla de datos que aparece al inicio, el grafico y su tabla serie mensual, y en la otra subpestaña el resto de tablas.

@@ -329,5 +329,6 @@ def test_vacios_dashboard_y_auditoria_explican_recuperacion(app):
     vacio = cliente.get("/?q=sin-coincidencias-auditoria").text
     assert "No hay registros con estos filtros" in vacio
     assert "Las metas" in vacio and "Limpiar filtros" in vacio
-    assert "Todavía no hay eventos registrados" in cliente.get("/auditoria").text
     assert 'href="/auditoria"' in cliente.get("/auditoria?codigo=OPD-0000").text
+    app.state.almacen.auditoria.datos.clear()
+    assert "Todavía no hay eventos registrados" in cliente.get("/auditoria").text

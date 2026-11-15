@@ -36,7 +36,66 @@ document.addEventListener('DOMContentLoaded', () => {
       const destino = document.querySelector(boton.dataset.toggleTarget);
       const abierto = destino.classList.toggle('show');
       boton.setAttribute('aria-expanded', String(abierto));
+      if (boton.dataset.toggleTarget === '#filtros-collapse') {
+        sessionStorage.setItem('filtros_abiertos', String(abierto));
+      }
     });
+  });
+  const panelFiltros = document.getElementById('filtros-collapse');
+  const btnFiltros = document.querySelector('[data-toggle-target="#filtros-collapse"]');
+  if (panelFiltros && btnFiltros && sessionStorage.getItem('filtros_abiertos') === 'true') {
+    panelFiltros.classList.add('show');
+    btnFiltros.setAttribute('aria-expanded', 'true');
+  }
+
+  // Manejador de subpestañas del dashboard
+  document.querySelectorAll('[data-tab-target]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const targetSelector = btn.dataset.tabTarget;
+      document.querySelectorAll('[data-tab-target]').forEach((b) => {
+        b.classList.remove('active');
+        b.setAttribute('aria-selected', 'false');
+      });
+      document.querySelectorAll('#tablero-pestanas-contenido > .tab-pane').forEach((pane) => {
+        pane.classList.remove('active');
+        pane.classList.add('d-none');
+      });
+      btn.classList.add('active');
+      btn.setAttribute('aria-selected', 'true');
+      const targetPane = document.querySelector(targetSelector);
+      if (targetPane) {
+        targetPane.classList.remove('d-none');
+        targetPane.classList.add('active');
+      }
+      sessionStorage.setItem('dashboard_subpestana', targetSelector);
+      window.dispatchEvent(new Event('resize'));
+    });
+  });
+  const subpestanaGuardada = sessionStorage.getItem('dashboard_subpestana');
+  if (subpestanaGuardada) {
+    const btnSubpestana = document.querySelector(`[data-tab-target="${subpestanaGuardada}"]`);
+    if (btnSubpestana && !btnSubpestana.classList.contains('active')) {
+      btnSubpestana.click();
+    }
+  }
+
+  // Auto-submit para formularios de filtros sin tener que pulsar Aplicar cada vez
+  document.querySelectorAll('form[data-auto-submit]').forEach((form) => {
+    form.querySelectorAll('select, input[type="checkbox"], input[type="month"], input[type="date"]').forEach((input) => {
+      input.addEventListener('change', () => {
+        form.requestSubmit();
+      });
+    });
+    const searchInput = form.querySelector('input[name="q"]');
+    if (searchInput) {
+      let timer;
+      searchInput.addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          form.requestSubmit();
+        }, 500);
+      });
+    }
   });
   document.querySelectorAll('[data-dialog-open]').forEach((boton) => {
     boton.addEventListener('click', () => {
@@ -160,5 +219,268 @@ document.addEventListener('DOMContentLoaded', () => {
       grafico.update();
       document.getElementById('estado-grafico').textContent = `${control.parentElement.textContent.trim()}: ${control.checked ? 'visible' : 'oculta'}. La tabla mantiene todos los valores.`;
     }));
+
+    // Vistas propias del gráfico (3m ant + 3m fut, últimos 3m, 6m, 12m, futuro 3m, 6m) sin recargar ni tocar filtros
+    const datosSerieCompleta = document.getElementById('datos-serie-completa');
+    if (datosSerieCompleta) {
+      try {
+        const payload = JSON.parse(datosSerieCompleta.textContent);
+        const hoyPeriodo = payload.hoy;
+        const serie = payload.meses || [];
+        const idxHoy = serie.findIndex((m) => m.periodo === hoyPeriodo);
+
+        const actualizarVistaGrafico = (vista) => {
+          let slice;
+          const idx = idxHoy >= 0 ? idxHoy : 12;
+          if (vista === 'ultimos_3m') slice = serie.slice(Math.max(0, idx - 3), idx);
+          else if (vista === 'ultimos_6m') slice = serie.slice(Math.max(0, idx - 6), idx);
+          else if (vista === 'ultimos_12m') slice = serie.slice(Math.max(0, idx - 12), idx);
+          else if (vista === 'futuro_3m') slice = serie.slice(idx, idx + 3);
+          else if (vista === 'futuro_6m') slice = serie.slice(idx, idx + 6);
+          else slice = serie.slice(Math.max(0, idx - 3), idx + 3);
+
+          if (!slice || slice.length === 0) return;
+
+          // 1. Actualizar gráfico
+          configuracion.data.labels = slice.map((m) => m.etiqueta);
+          configuracion.data.datasets[0].data = slice.map((m) => m.backlog);
+          configuracion.data.datasets[1].data = slice.map((m) => m.mab);
+          configuracion.data.datasets[2].data = slice.map((m) => m.meta);
+          grafico.update();
+
+          // 2. Actualizar tabla serie mensual
+          const cuerpo = document.getElementById('cuerpo-serie-mensual');
+          if (cuerpo) {
+            cuerpo.innerHTML = slice.map((m) => `
+              <tr>
+                <td>${m.etiqueta}</td>
+                <td class="num">${clp(m.backlog)}</td>
+                <td class="num">${clp(m.mab)}</td>
+                <td class="num fw-semibold">${clp(m.forecast)}</td>
+                <td class="num">${clp(m.meta)}</td>
+                <td class="num">${m.hc}</td>
+              </tr>
+            `).join('');
+          }
+
+          // 3. Actualizar pie de tabla (totales)
+          const pie = document.getElementById('pie-serie-mensual');
+          const totBacklog = slice.reduce((acc, m) => acc + m.backlog, 0);
+          const totMab = slice.reduce((acc, m) => acc + m.mab, 0);
+          const totForecast = slice.reduce((acc, m) => acc + m.forecast, 0);
+          const totMeta = slice.reduce((acc, m) => acc + m.meta, 0);
+          if (pie) {
+            pie.innerHTML = `
+              <tr class="fw-semibold">
+                <td><button type="button" class="th-ayuda-btn" data-ayuda-titulo="Totales consolidados de la serie" data-ayuda-def="Consolidado acumulado de ingresos y metas para el horizonte completo analizado." data-ayuda-calc="Suma aritmética directa de los valores mensuales ya redondeados a CLP enteros (RN-88)."><span>Total</span><span class="ayuda-icono" aria-hidden="true">ℹ</span></button></td>
+                <td class="num">${clp(totBacklog)}</td>
+                <td class="num">${clp(totMab)}</td>
+                <td class="num">${clp(totForecast)}</td>
+                <td class="num">${clp(totMeta)}</td>
+                <td></td>
+              </tr>
+            `;
+          }
+
+          // 4. Actualizar Delta y Cobertura
+          const delta = totForecast - totMeta;
+          const cob = totMeta > 0 ? Math.round((totForecast * 10000) / totMeta) / 100 : null;
+          const textoDelta = document.getElementById('texto-delta-cobertura');
+          if (textoDelta) {
+            const cobTexto = cob !== null ? `Cobertura ${cob.toLocaleString('es-CL')} %.` : 'Sin meta para calcular cobertura.';
+            textoDelta.textContent = `Delta del horizonte: ${clp(delta)}. ${cobTexto}`;
+          }
+
+          try {
+            sessionStorage.setItem('proyecta_vista_grafico', vista);
+          } catch (_) {}
+        };
+
+        const selVista = document.getElementById('vista-grafico');
+        if (selVista) {
+          selVista.addEventListener('change', () => {
+            actualizarVistaGrafico(selVista.value);
+          });
+          const guardado = sessionStorage.getItem('proyecta_vista_grafico');
+          if (guardado && guardado !== selVista.value) {
+            selVista.value = guardado;
+            actualizarVistaGrafico(guardado);
+          }
+        }
+      } catch (err) {
+        console.error('Error al inicializar vistas del gráfico:', err);
+      }
+    }
   }
+
+  // Tooltips interactivos para métricas y grillas ejecutivas (US4, T008).
+  let tooltipEl = document.getElementById('proyecta-tooltip');
+  if (!tooltipEl) {
+    tooltipEl = document.createElement('div');
+    tooltipEl.id = 'proyecta-tooltip';
+    tooltipEl.className = 'proyecta-tooltip';
+    tooltipEl.setAttribute('role', 'tooltip');
+    tooltipEl.setAttribute('aria-hidden', 'true');
+    tooltipEl.hidden = true;
+    tooltipEl.innerHTML = `
+      <div class="proyecta-tooltip__header">
+        <div class="proyecta-tooltip__titulo-wrap">
+          <span class="ayuda-icono" aria-hidden="true">ℹ</span>
+          <strong class="proyecta-tooltip__titulo"></strong>
+        </div>
+        <button type="button" class="proyecta-tooltip__cerrar" aria-label="Cerrar ayuda">×</button>
+      </div>
+      <div class="proyecta-tooltip__seccion">
+        <span class="proyecta-tooltip__etiqueta">¿Qué significa?</span>
+        <p class="proyecta-tooltip__texto proyecta-tooltip__def"></p>
+      </div>
+      <div class="proyecta-tooltip__seccion">
+        <span class="proyecta-tooltip__etiqueta">¿Cómo se calcula?</span>
+        <p class="proyecta-tooltip__texto proyecta-tooltip__calc"></p>
+      </div>
+    `;
+    document.body.appendChild(tooltipEl);
+  }
+
+  const tituloEl = tooltipEl.querySelector('.proyecta-tooltip__titulo');
+  const defEl = tooltipEl.querySelector('.proyecta-tooltip__def');
+  const calcEl = tooltipEl.querySelector('.proyecta-tooltip__calc');
+  const btnCerrar = tooltipEl.querySelector('.proyecta-tooltip__cerrar');
+
+  let elementoActivo = null;
+  let fijado = false;
+  let temporizadorOcultar = null;
+
+  const formatearTexto = (texto) => {
+    if (!texto) return '';
+    const div = document.createElement('div');
+    div.textContent = texto;
+    let sanitizado = div.innerHTML;
+    sanitizado = sanitizado.replace(/`([^`]+)`/g, '<code>$1</code>');
+    return sanitizado;
+  };
+
+  const posicionarTooltip = (target) => {
+    const rect = target.getBoundingClientRect();
+    const tooltipRect = tooltipEl.getBoundingClientRect();
+    const anchoTooltip = tooltipRect.width || 340;
+    const altoTooltip = tooltipRect.height || 180;
+
+    let top = rect.top - altoTooltip - 8;
+    if (top < 10) {
+      top = rect.bottom + 8;
+    }
+    let left = rect.left + (rect.width / 2) - (anchoTooltip / 2);
+    if (left < 10) left = 10;
+    if (left + anchoTooltip > window.innerWidth - 10) {
+      left = window.innerWidth - anchoTooltip - 10;
+    }
+
+    tooltipEl.style.top = `${Math.round(top)}px`;
+    tooltipEl.style.left = `${Math.round(left)}px`;
+  };
+
+  const mostrarTooltip = (target, esFijado = false) => {
+    clearTimeout(temporizadorOcultar);
+    const titulo = target.dataset.ayudaTitulo || target.getAttribute('aria-label') || '';
+    const def = target.dataset.ayudaDef || '';
+    const calc = target.dataset.ayudaCalc || '';
+    if (!def && !calc) return;
+
+    elementoActivo = target;
+    fijado = esFijado;
+    if (tituloEl) tituloEl.textContent = titulo;
+    if (defEl) defEl.innerHTML = formatearTexto(def);
+    if (calcEl) calcEl.innerHTML = formatearTexto(calc);
+
+    tooltipEl.hidden = false;
+    tooltipEl.setAttribute('aria-hidden', 'false');
+    posicionarTooltip(target);
+    tooltipEl.classList.add('visible');
+  };
+
+  const ocultarTooltip = (forzar = false) => {
+    if (fijado && !forzar) return;
+    clearTimeout(temporizadorOcultar);
+    temporizadorOcultar = setTimeout(() => {
+      tooltipEl.classList.remove('visible');
+      tooltipEl.setAttribute('aria-hidden', 'true');
+      tooltipEl.hidden = true;
+      elementoActivo = null;
+      fijado = false;
+    }, 120);
+  };
+
+  btnCerrar?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const previo = elementoActivo;
+    ocultarTooltip(true);
+    previo?.focus();
+  });
+
+  tooltipEl.addEventListener('mouseenter', () => clearTimeout(temporizadorOcultar));
+  tooltipEl.addEventListener('mouseleave', () => {
+    if (!fijado) ocultarTooltip();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !tooltipEl.hidden) {
+      const previo = elementoActivo;
+      ocultarTooltip(true);
+      previo?.focus();
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!tooltipEl.hidden && !tooltipEl.contains(e.target) && !elementoActivo?.contains(e.target)) {
+      ocultarTooltip(true);
+    }
+  });
+
+  window.addEventListener('resize', () => {
+    if (!tooltipEl.hidden && elementoActivo) {
+      posicionarTooltip(elementoActivo);
+    }
+  });
+
+  document.addEventListener('mouseover', (e) => {
+    const trigger = e.target.closest('[data-ayuda-titulo]');
+    if (trigger && !fijado) {
+      mostrarTooltip(trigger, false);
+    }
+  });
+
+  document.addEventListener('mouseout', (e) => {
+    const trigger = e.target.closest('[data-ayuda-titulo]');
+    if (trigger && !fijado) {
+      ocultarTooltip();
+    }
+  });
+
+  document.addEventListener('focusin', (e) => {
+    const trigger = e.target.closest('[data-ayuda-titulo]');
+    if (trigger && !fijado) {
+      mostrarTooltip(trigger, false);
+    }
+  });
+
+  document.addEventListener('focusout', (e) => {
+    const trigger = e.target.closest('[data-ayuda-titulo]');
+    if (trigger && !fijado) {
+      ocultarTooltip();
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.btn-ayuda-kpi, .th-ayuda-btn, .btn-ayuda-seccion, .btn-ayuda-inline');
+    if (btn) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (elementoActivo === btn && fijado) {
+        ocultarTooltip(true);
+      } else {
+        mostrarTooltip(btn, true);
+      }
+    }
+  });
 });

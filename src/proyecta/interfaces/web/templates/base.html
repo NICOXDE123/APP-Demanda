@@ -24,7 +24,9 @@
       <div class="collapse navbar-collapse" id="menu">
         <ul class="navbar-nav me-auto">
           {% for clave, href, nombre in [('dashboard', '/', 'Dashboard'), ('registros', '/registros?activos=1', 'Registros'), ('parametros', '/parametros', 'Parámetros MAB'), ('auditoria', '/auditoria', 'Auditoría')] %}
+          {% if not (rol == 'EJECUTIVO' and clave in ('parametros', 'auditoria')) %}
           <li class="nav-item"><a class="nav-link{% if seccion == clave %} active{% endif %}" href="{{ href }}"{% if seccion == clave %} aria-current="{{ 'location' if subseccion else 'page' }}"{% endif %}>{{ nombre }}</a></li>
+          {% endif %}
           {% endfor %}
         </ul>
         <span class="navbar-text small me-3">{{ usuario.nombre }} · {{ rol|etiqueta }}</span>
@@ -43,7 +45,7 @@
     </div>
   </nav>
   <main id="principal" class="container-fluid px-3 px-lg-4 pb-5">
-    <p class="small text-secondary mb-2">Datos 100 % sintéticos · montos en CLP · versión MVP (Entrega 2)</p>
+    <p class="small text-secondary mb-2">Montos en CLP · versión MVP (Entrega 2)</p>
     {% block contenido %}{% endblock %}
   </main>
 </body>

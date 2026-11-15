@@ -23,16 +23,36 @@
       <input class="form-control" type="date" id="ingreso" name="fecha_ingreso" value="{{ form.fecha_ingreso or '' }}" {% if 'fecha_ingreso' in errores_campo %}aria-invalid="true" aria-describedby="fecha_ingreso-error"{% endif %}>{% if 'fecha_ingreso' in errores_campo %}<span class="d-block text-danger small" id="fecha_ingreso-error">{{ errores_campo['fecha_ingreso'] }}</span>{% endif %}</div>
     <div class="col-6 col-md-2"><label class="form-label" for="finv">Fin de vigencia</label>
       <input class="form-control" type="date" id="finv" name="fecha_fin_vigencia" value="{{ form.fecha_fin_vigencia or '' }}" {% if 'fecha_fin_vigencia' in errores_campo %}aria-invalid="true" aria-describedby="fecha_fin_vigencia-error"{% endif %}>{% if 'fecha_fin_vigencia' in errores_campo %}<span class="d-block text-danger small" id="fecha_fin_vigencia-error">{{ errores_campo['fecha_fin_vigencia'] }}</span>{% endif %}</div>
+
     {% for campo, etiqueta_campo, opciones in [('cliente_id', 'Cliente *', clientes), ('sector_id', 'Sector *', sectores), ('manager_id', 'Manager *', managers)] %}
-    <div class="col-12 col-md-3"><label class="form-label" for="{{ campo }}">{{ etiqueta_campo }}</label>
+    <div class="col-12 col-md-4"><label class="form-label" for="{{ campo }}">{{ etiqueta_campo }}</label>
       <select class="form-select" id="{{ campo }}" name="{{ campo }}" required {% if campo in errores_campo %}aria-invalid="true" aria-describedby="{{ campo }}-error"{% endif %}><option value="">Elige…</option>
         {% for c in opciones %}<option value="{{ c.id }}" {% if form[campo] == c.id|string %}selected{% endif %}>{{ c.etiqueta }}</option>{% endfor %}</select>{% if campo in errores_campo %}<span class="d-block text-danger small" id="{{ campo }}-error">{{ errores_campo[campo] }}</span>{% endif %}</div>
     {% endfor %}
+
     {% if rol == 'OPERACIONES' %}
-    <div class="col-12 col-md-3"><label class="form-label" for="owner_id">Owner (líder)</label>
+    <div class="col-12 col-md-4"><label class="form-label" for="owner_id">Owner (líder)</label>
       <select class="form-select" id="owner_id" name="owner_id" {% if 'owner_id' in errores_campo %}aria-invalid="true" aria-describedby="owner_id-error"{% endif %}><option value="">Yo</option>
         {% for u in lideres %}<option value="{{ u.id }}" {% if form.owner_id == u.id|string %}selected{% endif %}>{{ u.nombre }}</option>{% endfor %}</select>{% if 'owner_id' in errores_campo %}<span class="d-block text-danger small" id="owner_id-error">{{ errores_campo['owner_id'] }}</span>{% endif %}</div>
     {% endif %}
+
+    <div class="col-6 col-md-4"><label class="form-label" for="modalidad">Modalidad</label>
+      <select class="form-select" id="modalidad" name="modalidad">
+        {% for m in modalidades %}<option value="{{ m.value }}" {% if form.modalidad == m.value %}selected{% endif %}>{{ m|etiqueta }}</option>{% endfor %}</select></div>
+    <div class="col-6 col-md-4"><label class="form-label" for="cuenta">Cuenta</label>
+      <input class="form-control" id="cuenta" name="cuenta" maxlength="120" value="{{ form.cuenta or '' }}" placeholder="Ej. No Aplica"></div>
+    <div class="col-6 col-md-4"><label class="form-label" for="id_externo">ID externo (MANA/CRM)</label>
+      <input class="form-control" id="id_externo" name="id_externo" maxlength="60" value="{{ form.id_externo or '' }}" placeholder="ID externo"></div>
+
+    <div class="col-12 d-flex flex-wrap gap-3">
+      <div class="form-check"><input class="form-check-input" type="checkbox" name="studio" value="1" id="alta-studio" {% if form.studio %}checked{% endif %}>
+        <label class="form-check-label" for="alta-studio">Studio</label></div>
+      <div class="form-check"><input class="form-check-input" type="checkbox" name="en_staffing" value="1" id="alta-staffing" {% if form.en_staffing %}checked{% endif %}>
+        <label class="form-check-label" for="alta-staffing">En Staffing</label></div>
+      <div class="form-check"><input class="form-check-input" type="checkbox" name="en_invoicing" value="1" id="alta-invoicing" {% if form.en_invoicing %}checked{% endif %}>
+        <label class="form-check-label" for="alta-invoicing">En Invoicing</label></div>
+    </div>
+
     <div class="col-12" data-solo-tipo="DEMANDA">
       <div class="row g-3">
         <div class="col-12 col-md-3"><label class="form-label" for="flujo">Flujo</label>
@@ -62,14 +82,13 @@
       <div class="small-help">Las observaciones no reemplazan la bitácora (FR-010).</div></div>
   </div>
 
-  <h2 class="h6 mt-3">Perfiles <span class="small-help">(HC 1–999, dedicación 1–100 %, tarifa en CLP por hora; filas vacías se ignoran)</span></h2>
+  <h2 class="h6 mt-3">Perfiles <span class="small-help">(HC 1–999, tarifa en CLP por hora; filas vacías se ignoran)</span></h2>
   <div class="tabla-scroll" role="region" tabindex="0" aria-label="Perfiles del nuevo registro"><table class="table table-sm small align-middle">
-    <thead><tr><th>#</th><th>Perfil</th><th>HC</th><th>Dedicación %</th><th>Tarifa CLP/h</th><th>Ingreso</th><th>Fin (primer día sin actividad)</th></tr></thead>
+    <thead><tr><th>#</th><th>Perfil</th><th>HC</th><th>Tarifa CLP/h</th><th>Ingreso</th><th>Fin (primer día sin actividad)</th></tr></thead>
     <tbody>{% for i in range(1, max_perfiles + 1) %}<tr><td>{{ i }}</td>
       <td><select class="form-select form-select-sm" name="p{{ i }}_nombre" aria-label="Perfil {{ i }}" id="p{{ i }}_nombre" {% if 'p' ~ i ~ '_nombre' in errores_campo %}aria-invalid="true" aria-describedby="p{{ i }}_nombre-error"{% endif %}><option value="">—</option>
         {% for c in nombres_perfil %}<option value="{{ c.id }}" {% if form['p' ~ i ~ '_nombre'] == c.id|string %}selected{% endif %}>{{ c.etiqueta }}</option>{% endfor %}</select>{% if 'p' ~ i ~ '_nombre' in errores_campo %}<span class="d-block text-danger small" id="p{{ i }}_nombre-error">{{ errores_campo['p' ~ i ~ '_nombre'] }}</span>{% endif %}</td>
       <td><input class="form-control form-control-sm" name="p{{ i }}_hc" type="number" min="1" max="999" aria-label="HC perfil {{ i }}" value="{{ form['p' ~ i ~ '_hc'] or '' }}" id="p{{ i }}_hc" {% if 'p' ~ i ~ '_hc' in errores_campo %}aria-invalid="true" aria-describedby="p{{ i }}_hc-error"{% endif %}>{% if 'p' ~ i ~ '_hc' in errores_campo %}<span class="d-block text-danger small" id="p{{ i }}_hc-error">{{ errores_campo['p' ~ i ~ '_hc'] }}</span>{% endif %}</td>
-      <td><input class="form-control form-control-sm" name="p{{ i }}_ded" type="number" min="1" max="100" aria-label="Dedicación perfil {{ i }}" value="{{ form['p' ~ i ~ '_ded'] or '' }}" id="p{{ i }}_ded" {% if 'p' ~ i ~ '_ded' in errores_campo %}aria-invalid="true" aria-describedby="p{{ i }}_ded-error"{% endif %}>{% if 'p' ~ i ~ '_ded' in errores_campo %}<span class="d-block text-danger small" id="p{{ i }}_ded-error">{{ errores_campo['p' ~ i ~ '_ded'] }}</span>{% endif %}</td>
       <td><input class="form-control form-control-sm" name="p{{ i }}_tarifa" inputmode="decimal" aria-label="Tarifa perfil {{ i }}" value="{{ form['p' ~ i ~ '_tarifa'] or '' }}" id="p{{ i }}_tarifa" {% if 'p' ~ i ~ '_tarifa' in errores_campo %}aria-invalid="true" aria-describedby="p{{ i }}_tarifa-error"{% endif %}>{% if 'p' ~ i ~ '_tarifa' in errores_campo %}<span class="d-block text-danger small" id="p{{ i }}_tarifa-error">{{ errores_campo['p' ~ i ~ '_tarifa'] }}</span>{% endif %}</td>
       <td><input class="form-control form-control-sm" name="p{{ i }}_ingreso" type="date" aria-label="Ingreso perfil {{ i }}" value="{{ form['p' ~ i ~ '_ingreso'] or '' }}" id="p{{ i }}_ingreso" {% if 'p' ~ i ~ '_ingreso' in errores_campo %}aria-invalid="true" aria-describedby="p{{ i }}_ingreso-error"{% endif %}>{% if 'p' ~ i ~ '_ingreso' in errores_campo %}<span class="d-block text-danger small" id="p{{ i }}_ingreso-error">{{ errores_campo['p' ~ i ~ '_ingreso'] }}</span>{% endif %}</td>
       <td><input class="form-control form-control-sm" name="p{{ i }}_fin" type="date" aria-label="Fin perfil {{ i }}" value="{{ form['p' ~ i ~ '_fin'] or '' }}" id="p{{ i }}_fin" {% if 'p' ~ i ~ '_fin' in errores_campo %}aria-invalid="true" aria-describedby="p{{ i }}_fin-error"{% endif %}>{% if 'p' ~ i ~ '_fin' in errores_campo %}<span class="d-block text-danger small" id="p{{ i }}_fin-error">{{ errores_campo['p' ~ i ~ '_fin'] }}</span>{% endif %}</td></tr>{% endfor %}</tbody>

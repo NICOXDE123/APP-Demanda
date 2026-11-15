@@ -68,7 +68,7 @@ Mientras NTT DATA habilita el proyecto de GCP (S-12), la misma imagen de Cloud R
 |:-:|---|---|---|
 | 1 | Crear oportunidad o demanda con sus campos | *Registros* › botón *Nuevo registro* (modal) | Tres tipos: oportunidad (Pendiente, flujo 1, P 10 %, C 90 %), demanda directa (Adjudicada, flujo 3–5, P 100 %, con motivo) y continuidad con ficha de contrato (solo Operaciones). Código `OPD-####`, validación en el servidor sin guardado parcial y vista previa del cálculo antes de guardar |
 | 2 | Bitácora | Ficha › *Bitácora* | Entradas con tipo, autor, fecha y hora, próxima acción y fecha compromiso; no se editan ni se borran. Cada cambio de estado deja su entrada |
-| 3 | Perfiles y HC | Ficha › *Perfiles* | Agregar, editar y quitar perfiles. HC de 1 a 999 y dedicación de 1 a 100 %. Un cambio de HC exige motivo |
+| 3 | Perfiles y HC | Ficha › *Perfiles* | Agregar, editar y quitar perfiles. HC de 1 a 999 y dedicación de 1 a 100 %. Un cambio de HC exige motivo | 
 | 4 | Tarifas | Ficha › *Perfiles* › *Cambiar tarifa* | Historia de tarifas por perfil, sin superposición; la nueva rige desde su mes y no reescribe los anteriores |
 | 5 | Probabilidad y confiabilidad | Ficha › *Probabilidad · Confiabilidad* | P del catálogo en Pendiente; 100 % fijo al adjudicar (H-01). C solo por Operaciones. Ambas con motivo y vigencia mensual. El cambio de flujo en Pendiente sugiere la P |
 | 6 | Observaciones y fechas | Ficha › *Datos del registro* | Observaciones separadas de la bitácora; fechas de ingreso, fin de vigencia, adjudicación y cierre. Bloqueo optimista: si otra persona guardó antes, se informa el conflicto (409) sin pisar los datos |

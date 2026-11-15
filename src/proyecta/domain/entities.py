@@ -63,6 +63,7 @@ class Usuario:
     rol: Rol = Rol.LIDER
     sectores: list[str] = field(default_factory=list)
     activo: bool = True
+    lider_id: UUID | None = None
     password_hash: str = ""
     intentos_fallidos: int = 0
     bloqueado_hasta: datetime | None = None
@@ -387,10 +388,11 @@ class Catalogo:
 
 @dataclass(slots=True)
 class MetaComercial:
-    """Objetivo comercial por sector y mes (único por sector-mes)."""
+    """Objetivo comercial por líder y mes (T042)."""
 
     id: UUID = field(default_factory=uuid4)
     sector_id: UUID | None = None
+    lider_id: UUID | None = None
     mes: date = field(default_factory=date.today)
     monto_clp: int = 0
     usuario_id: UUID | None = None

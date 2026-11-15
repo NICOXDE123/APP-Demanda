@@ -54,7 +54,7 @@
         <div class="card-body">
           <p class="text-muted text-uppercase small mb-2">Fórmulas aplicadas</p>
           <ul class="list-unstyled small mb-0">
-            <li><strong>Base</strong>: Σ hc × dedicación × tarifa × horas × fracción activa</li>
+            <li><strong>Base</strong>: Σ hc × tarifa × horas × fracción activa</li>
             <li><strong>MAB</strong>: Base × probabilidad × confiabilidad</li>
             <li><strong>Forecast</strong>: Backlog contractual + MAB (una sola bolsa por mes)</li>
           </ul>
@@ -130,7 +130,6 @@
               <tr>
                 <th scope="col">Perfil</th>
                 <th scope="col" class="text-end">HC</th>
-                <th scope="col" class="text-end">Dedicación</th>
                 <th scope="col" class="text-end">Tarifa/hora</th>
                 <th scope="col" class="text-end">Días activos</th>
                 <th scope="col" class="text-end">Fracción</th>
@@ -142,7 +141,6 @@
               <tr>
                 <td>{{ componente.nombre_perfil_id or "Perfil sin catálogo" }}</td>
                 <td class="text-end">{{ componente.hc }}</td>
-                <td class="text-end">{{ componente.dedicacion_pct }} %</td>
                 <td class="text-end">{{ "{:,}".format(componente.tarifa_hora_centavos / 100).replace(",", ".") }} CLP</td>
                 <td class="text-end">{{ componente.dias_activos }}</td>
                 <td class="text-end">{{ (componente.fraccion_activa * 100) | round(1) }} %</td>

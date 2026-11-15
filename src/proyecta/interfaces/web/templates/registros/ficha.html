@@ -26,15 +26,15 @@
   {# --- Cálculo explicado (US3 esc. 5, FR-047) --- #}
   <div class="card card-body mb-3">
     <h2 class="h6">Cálculo de 12 meses · MAB {{ resultado.total_mab()|pesos }} · Forecast {{ resultado.total_forecast()|pesos }}</h2>
-    <p class="small-help mb-2">{% if r.tipo.value == 'CONTINUIDAD' %}Backlog = monto mensual × fracción activa del contrato (sin monto: Base al 100 %).{% else %}Base = Σ HC × dedicación × tarifa × horas del mes × fracción activa · MAB = Base × P × C.{% endif %}
+    <p class="small-help mb-2">{% if r.tipo.value == 'CONTINUIDAD' %}Backlog = monto mensual × fracción activa del contrato (sin monto: Base al 100 %).{% else %}Base = Σ HC × tarifa × horas del mes × fracción activa · MAB = Base × P × C.{% endif %}
       Forecast = Backlog contractual + MAB. Abre un mes para ver sus componentes.</p>
     <div class="tabla-scroll" role="region" tabindex="0" aria-label="C?lculo mensual del registro"><table class="table table-sm small mb-0">
       <thead><tr><th>Mes</th><th>Bolsa</th><th class="num">Base</th><th class="num">P</th><th class="num">C</th><th class="num">MAB</th><th class="num">Backlog</th><th class="num">Forecast</th><th class="num">HC</th></tr></thead>
       <tbody>
       {% for d in resultado.meses %}
         <tr><td><details><summary>{{ d.mes|mes }}</summary>
-          {% if d.componentes %}<table class="table table-sm table-borderless small mb-0 mt-1"><thead><tr><th>Perfil</th><th class="num">HC</th><th class="num">Ded.</th><th class="num">Tarifa/h</th><th class="num">Días</th><th class="num">Subtotal</th></tr></thead>
-          <tbody>{% for c in d.componentes %}<tr><td>{{ cat(c.nombre_perfil_id) }}</td><td class="num">{{ c.hc }}</td><td class="num">{{ c.dedicacion_pct }} %</td>
+          {% if d.componentes %}<table class="table table-sm table-borderless small mb-0 mt-1"><thead><tr><th>Perfil</th><th class="num">HC</th><th class="num">Tarifa/h</th><th class="num">Días</th><th class="num">Subtotal</th></tr></thead>
+          <tbody>{% for c in d.componentes %}<tr><td>{{ cat(c.nombre_perfil_id) }}</td><td class="num">{{ c.hc }}</td>
             <td class="num">{{ c.tarifa_hora_centavos|centavos }}</td><td class="num">{{ c.dias_activos }}/{{ d.mes.dias }}</td><td class="num">{{ c.subtotal_clp|pesos }}</td></tr>{% endfor %}</tbody></table>
           {% else %}<span class="small-help">Sin perfiles activos en el mes.</span>{% endif %}
           {% for a in d.advertencias %}<div class="small text-warning">{{ a }}</div>{% endfor %}
@@ -53,14 +53,13 @@
     {% for p, tarifas in perfiles %}
     <div class="border rounded p-2 mb-2 small">
       <div class="d-flex flex-wrap gap-3"><strong>{{ loop.index }}. {{ cat(p.nombre_perfil_id) }}</strong>
-        <span>{{ p.hc }} HC</span><span>{{ p.dedicacion_pct }} %</span><span>ingreso {{ p.fecha_ingreso|fecha }}</span><span>fin {{ p.fecha_fin|fecha }}</span>
+        <span>{{ p.hc }} HC</span><span>ingreso {{ p.fecha_ingreso|fecha }}</span><span>fin {{ p.fecha_fin|fecha }}</span>
         <span>Tarifas: {% for t in tarifas %}{{ t.tarifa_hora_centavos|centavos }}/h desde {{ t.vigente_desde|fecha }}{% if not loop.last %} → {% endif %}{% endfor %}</span></div>
       {% if editable and not r.es_terminal %}
       <details class="mt-1"><summary>Editar perfil, cambiar tarifa o quitar</summary>
         {% set datos = formulario('/registros/' ~ r.id ~ '/perfiles/' ~ p.id) %}
         <form method="post" action="/registros/{{ r.id }}/perfiles/{{ p.id }}" class="row g-2 mt-1">{{ ocultos(datos) }}
-          <div class="col-4 col-md-2"><label class="form-label mb-0">HC<input class="form-control form-control-sm" type="number" name="hc" min="1" max="999" value="{{ datos.get('hc', p.hc) }}" {{ atributos(datos, 'hc') }}>{{ error_campo(datos, 'hc') }}</label></div>
-          <div class="col-4 col-md-2"><label class="form-label mb-0">Ded. %<input class="form-control form-control-sm" type="number" name="ded" min="1" max="100" value="{{ datos.get('ded', p.dedicacion_pct) }}" {{ atributos(datos, 'ded') }}>{{ error_campo(datos, 'ded') }}</label></div>
+          <div class="col-6 col-md-3"><label class="form-label mb-0">HC<input class="form-control form-control-sm" type="number" name="hc" min="1" max="999" value="{{ datos.get('hc', p.hc) }}" {{ atributos(datos, 'hc') }}>{{ error_campo(datos, 'hc') }}</label></div>
           <div class="col-6 col-md-3"><label class="form-label mb-0">Ingreso<input class="form-control form-control-sm" type="date" name="ingreso" value="{{ datos.get('ingreso', p.fecha_ingreso) }}" {{ atributos(datos, 'ingreso') }}>{{ error_campo(datos, 'ingreso') }}</label></div>
           <div class="col-6 col-md-3"><label class="form-label mb-0">Fin<input class="form-control form-control-sm" type="date" name="fin" value="{{ datos.get('fin', p.fecha_fin or '') }}" {{ atributos(datos, 'fin') }}>{{ error_campo(datos, 'fin') }}</label></div>
           <div class="col-12 col-md-8"><label class="form-label mb-0 w-100">Motivo (obligatorio si cambia el HC)<input class="form-control form-control-sm" name="motivo" maxlength="500" value="{{ datos.get('motivo', '') }}" {{ atributos(datos, 'motivo') }}>{{ error_campo(datos, 'motivo') }}</label></div>
@@ -88,11 +87,10 @@
       <form method="post" action="/registros/{{ r.id }}/perfiles" class="row g-2 mt-1 small">{{ ocultos(datos) }}
         <div class="col-12 col-md-3"><label class="form-label mb-0 w-100">Perfil<select class="form-select form-select-sm" name="p1_nombre" {{ atributos(datos, 'p1_nombre') }}><option value="" {% if datos.get('p1_nombre', '')|string == ('')|string %}selected{% endif %}>—</option>
           {% for c in nombres_perfil %}<option value="{{ c.id }}" {% if datos.get('p1_nombre', '')|string == (c.id)|string %}selected{% endif %}>{{ c.etiqueta }}</option>{% endfor %}</select>{{ error_campo(datos, 'p1_nombre') }}</label></div>
-        <div class="col-4 col-md-1"><label class="form-label mb-0">HC<input class="form-control form-control-sm" type="number" name="p1_hc" min="1" max="999" required value="{{ datos.get('p1_hc', '') }}" {{ atributos(datos, 'p1_hc') }}>{{ error_campo(datos, 'p1_hc') }}</label></div>
-        <div class="col-4 col-md-2"><label class="form-label mb-0">Ded. %<input class="form-control form-control-sm" type="number" name="p1_ded" min="1" max="100" value="{{ datos.get('p1_ded', '100') }}" {{ atributos(datos, 'p1_ded') }}>{{ error_campo(datos, 'p1_ded') }}</label></div>
+        <div class="col-4 col-md-2"><label class="form-label mb-0">HC<input class="form-control form-control-sm" type="number" name="p1_hc" min="1" max="999" required value="{{ datos.get('p1_hc', '') }}" {{ atributos(datos, 'p1_hc') }}>{{ error_campo(datos, 'p1_hc') }}</label></div>
         <div class="col-4 col-md-2"><label class="form-label mb-0">Tarifa CLP/h<input class="form-control form-control-sm" name="p1_tarifa" inputmode="decimal" required value="{{ datos.get('p1_tarifa', '') }}" {{ atributos(datos, 'p1_tarifa') }}>{{ error_campo(datos, 'p1_tarifa') }}</label></div>
         <div class="col-6 col-md-2"><label class="form-label mb-0">Ingreso<input class="form-control form-control-sm" type="date" name="p1_ingreso" required value="{{ datos.get('p1_ingreso', '') }}" {{ atributos(datos, 'p1_ingreso') }}>{{ error_campo(datos, 'p1_ingreso') }}</label></div>
-        <div class="col-6 col-md-2"><label class="form-label mb-0">Fin<input class="form-control form-control-sm" type="date" name="p1_fin" value="{{ datos.get('p1_fin', '') }}" {{ atributos(datos, 'p1_fin') }}>{{ error_campo(datos, 'p1_fin') }}</label></div>
+        <div class="col-6 col-md-3"><label class="form-label mb-0">Fin<input class="form-control form-control-sm" type="date" name="p1_fin" value="{{ datos.get('p1_fin', '') }}" {{ atributos(datos, 'p1_fin') }}>{{ error_campo(datos, 'p1_fin') }}</label></div>
         <div class="col-12"><button class="btn btn-sm btn-outline-primary">Agregar perfil</button></div>
       </form>
     </details>

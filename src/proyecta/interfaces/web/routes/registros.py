@@ -7,7 +7,7 @@ Un error de negocio vuelve a mostrar la ficha con el mensaje y el código HTTP q
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from uuid import UUID
 from urllib.parse import urlencode
 
@@ -69,6 +69,13 @@ def _catalogos(request: Request) -> dict:
 def _pagina_lista(request: Request, *, form=None, errores=(), status_code: int = 200, abrir_alta=None):
     f = leer_filtros(request)
     datos = tablero(request.app.state.almacen, request.app.state.calculo, request.state.usuario, f)
+    total_registros = len(datos["filas"])
+    por_pagina = 20
+    total_paginas = max(1, (total_registros + por_pagina - 1) // por_pagina)
+    pagina = max(1, min(total_paginas, a_entero(request.query_params.get("pagina")) or 1))
+    inicio = (pagina - 1) * por_pagina
+    filas_paginadas = datos["filas"][inicio:inicio + por_pagina]
+
     if form is None:
         siguiente = Period.desde_fecha(date.today()).siguiente().inicio
         form = {"tipo": "OPORTUNIDAD", "p1_hc": "3", "p1_ded": "100", "p1_tarifa": "25.000",
@@ -76,7 +83,12 @@ def _pagina_lista(request: Request, *, form=None, errores=(), status_code: int =
     if abrir_alta is None:
         abrir_alta = request.query_params.get("nuevo") == "1"
     return render(request, "registros/lista.html", {
-        **datos, **opciones_filtro(request), **_catalogos(request),
+        **datos,
+        "filas": filas_paginadas,
+        "pagina": pagina,
+        "total_paginas": total_paginas,
+        "total_registros": total_registros,
+        **opciones_filtro(request), **_catalogos(request),
         "form": form, "errores": errores, "max_perfiles": MAX_PERFILES_ALTA, "abrir_alta": abrir_alta,
         "errores_campo": errores_por_campo(list(errores), form),
     }, status_code=status_code)
@@ -122,6 +134,11 @@ def _leer_registro(form) -> dict:
         "servicio_proyecto": texto(form, "servicio_proyecto"), "cliente_id": a_uuid(form.get("cliente_id")),
         "sector_id": a_uuid(form.get("sector_id")), "manager_id": a_uuid(form.get("manager_id")),
         "owner_id": a_uuid(form.get("owner_id")), "observaciones": texto(form, "observaciones"),
+        "id_externo": texto(form, "id_externo"), "cuenta": texto(form, "cuenta"),
+        "modalidad": form.get("modalidad") if form.get("modalidad") in Modalidad.__members__ else "NTT",
+        "studio": form.get("studio") == "1",
+        "en_staffing": form.get("en_staffing") == "1",
+        "en_invoicing": form.get("en_invoicing") == "1",
         "fecha_ingreso": a_fecha(form.get("fecha_ingreso")), "fecha_fin_vigencia": a_fecha(form.get("fecha_fin_vigencia")),
         "flujo": form.get("flujo") if form.get("flujo") in Flujo.__members__ else None,
         "fecha_adjudicacion": a_fecha(form.get("fecha_adjudicacion")), "motivo": texto(form, "motivo"),
@@ -207,6 +224,8 @@ def ficha(request: Request, registro_id: UUID, error: str | None = None, status_
         raise HTTPException(404, "Registro no encontrado")
     if usuario.rol is Rol.LIDER and registro.owner_id != usuario.id:
         raise HTTPException(403, "Solo puedes ver tus registros.")
+    if usuario.rol is Rol.EJECUTIVO and (usuario.lider_id and registro.owner_id != usuario.lider_id):
+        raise HTTPException(403, "Solo puedes ver los registros de tu líder.")
     resultado = request.app.state.calculo.calcular_registro(registro.id)
     perfiles = almacen.perfiles.listar_por_registro(registro.id)
     editable = states.puede_editar(usuario.rol, usuario.id, registro)
@@ -214,9 +233,9 @@ def ficha(request: Request, registro_id: UUID, error: str | None = None, status_
         **_catalogos(request), "r": registro, "resultado": resultado, "editable": editable,
         "perfiles": [(p, almacen.perfiles.tarifas_de(p.id)) for p in perfiles],
         "contrato": almacen.contratos.obtener_por_registro(registro.id),
-        "bitacora": almacen.bitacora.listar_por_registro(registro.id),
-        "eventos": almacen.auditoria.listar_por_registro(registro.id),
-        "vigencias": sorted(almacen.vigencias.listar(registro.id), key=lambda v: (v.campo.value, v.vigente_desde)),
+        "bitacora": sorted(almacen.bitacora.listar_por_registro(registro.id), key=lambda b: getattr(b, "momento", getattr(b, "creado_en", datetime.min)), reverse=True),
+        "eventos": sorted(almacen.auditoria.listar_por_registro(registro.id), key=lambda e: getattr(e, "fecha_hora", getattr(e, "momento", datetime.min)), reverse=True),
+        "vigencias": sorted(almacen.vigencias.listar(registro.id), key=lambda v: (v.vigente_desde, getattr(v, "creado_en", datetime.min)), reverse=True),
         "destinos": states.destinos(registro, usuario.rol) if editable else [],
         "flujos_tipo": [f for f in Flujo if f in FLUJOS_POR_TIPO[registro.tipo]],
         "p_fija": states.probabilidad_fija(registro), "probabilidades": sorted(PROBABILIDADES_VALIDAS_BP - {10_000}),

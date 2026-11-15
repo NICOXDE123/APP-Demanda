@@ -21,6 +21,7 @@ from proyecta.domain.entities import (
     Bitacora,
     Contrato,
     EventoAuditoria,
+    MetaComercial,
     Parametro,
     Perfil,
     Registro,
@@ -38,6 +39,7 @@ from proyecta.domain.enums import (
     EntidadAuditoria,
     Estado,
     Flujo,
+    Modalidad,
     MotivoCierre,
     Rol,
     Tipo,
@@ -172,13 +174,23 @@ class ServicioRegistros:
             raise ErrorValidacion("VALIDACION", " ".join(errores), detalle={"errores": errores})
 
         owner = datos.get("owner_id") if usuario.rol is Rol.OPERACIONES and datos.get("owner_id") else usuario.id
+        modalidad_val = datos.get("modalidad")
+        modalidad = Modalidad(modalidad_val) if modalidad_val in Modalidad.__members__ else Modalidad.NTT
         registro = Registro(
             codigo=self.almacen.registros.siguiente_codigo(), tipo=tipo,
             manager_id=datos["manager_id"], owner_id=owner, sector_id=datos["sector_id"],
             cliente_id=datos["cliente_id"], servicio_proyecto=servicio,
+            id_externo=(datos.get("id_externo") or "").strip() or None,
+            cuenta=(datos.get("cuenta") or "").strip() or "No Aplica",
+            modalidad=modalidad,
+            studio=bool(datos.get("studio")),
+            en_staffing=bool(datos.get("en_staffing")),
+            en_invoicing=bool(datos.get("en_invoicing")),
             observaciones=(datos.get("observaciones") or "").strip() or None,
             fecha_creacion=hoy, fecha_ingreso=datos.get("fecha_ingreso"),
-            fecha_fin_vigencia=datos.get("fecha_fin_vigencia"), creado_por=usuario.id, actualizado_por=usuario.id,
+            fecha_fin_vigencia=datos.get("fecha_fin_vigencia"),
+            fecha_adjudicacion=datos.get("fecha_adjudicacion"),
+            creado_por=usuario.id, actualizado_por=usuario.id,
         )
         if tipo is Tipo.CONTINUIDAD:  # F3: en curso, flujo 6, P y C 100 %
             registro.estado, registro.flujo = Estado.EN_CURSO, Flujo.PERFILES_SELECCIONADOS
@@ -464,6 +476,41 @@ class ServicioRegistros:
                                    antes.totales.forecast_clp, despues.totales.forecast_clp),
         )
         return parametro
+
+    def cambiar_meta_lider(self, usuario: Usuario, lider_id: UUID, monto_clp: int,
+                           desde: date, motivo: str) -> MetaComercial:
+        if usuario.rol is Rol.EJECUTIVO:
+            raise PermisoDenegado(message="El rol Ejecutivo no modifica metas.", accion="metas")
+        if usuario.rol is Rol.LIDER and lider_id != usuario.id:
+            raise PermisoDenegado(message="Un líder solo puede modificar su propia meta comercial.", accion="metas")
+        motivo = _motivo(motivo)
+        if monto_clp < 0:
+            raise ErrorRango("RANGO_INVALIDO", "La meta comercial no puede ser negativa.")
+        mes = Period.desde_fecha(desde).inicio
+        vigente = self.almacen.metas.obtener(lider_id=lider_id, mes=mes)
+        anterior = vigente.monto_clp if vigente else 0
+        if vigente:
+            vigente.monto_clp = monto_clp
+            vigente.usuario_id = usuario.id
+            meta = vigente
+        else:
+            meta = MetaComercial(lider_id=lider_id, mes=mes, monto_clp=monto_clp, usuario_id=usuario.id)
+            self.almacen.metas.guardar(meta)
+        self.auditoria.registrar(
+            CambioAuditado(
+                entidad=EntidadAuditoria.META.value,
+                entidad_id=meta.id,
+                registro_id=lider_id,
+                campo="meta_lider",
+                valor_anterior=anterior,
+                valor_nuevo=monto_clp,
+                usuario_id=usuario.id,
+                motivo=motivo,
+                fecha_efectiva=mes,
+            ),
+            impacto=ImpactoCalculo(0, 0, 0, 0),
+        )
+        return meta
 
 
 def _creacion(registro: Registro, usuario: Usuario, perfiles: int, motivo: str | None):

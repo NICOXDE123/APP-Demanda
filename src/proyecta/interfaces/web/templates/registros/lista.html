@@ -24,6 +24,28 @@
     {% else %}<tr><td colspan="11" class="text-secondary">No hay registros con estos filtros.</td></tr>{% endfor %}
     </tbody>
   </table></div>
+  {% if total_paginas > 1 %}
+  <nav aria-label="Paginación de registros" class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
+    <span class="small text-secondary">Página {{ pagina }} de {{ total_paginas }} ({{ total_registros }} registros)</span>
+    <ul class="pagination pagination-sm mb-0">
+      <li class="page-item {% if pagina <= 1 %}disabled{% endif %}">
+        <a class="page-link" href="/registros?{{ filtros.a_query(pagina=pagina - 1) }}" {% if pagina <= 1 %}tabindex="-1" aria-disabled="true"{% endif %}>Anterior</a>
+      </li>
+      {% for p in range(1, total_paginas + 1) %}
+        {% if p == pagina or p == 1 or p == total_paginas or (p >= pagina - 2 and p <= pagina + 2) %}
+          <li class="page-item {% if p == pagina %}active{% endif %}" {% if p == pagina %}aria-current="page"{% endif %}>
+            <a class="page-link" href="/registros?{{ filtros.a_query(pagina=p) }}">{{ p }}</a>
+          </li>
+        {% elif p == pagina - 3 or p == pagina + 3 %}
+          <li class="page-item disabled"><span class="page-link">…</span></li>
+        {% endif %}
+      {% endfor %}
+      <li class="page-item {% if pagina >= total_paginas %}disabled{% endif %}">
+        <a class="page-link" href="/registros?{{ filtros.a_query(pagina=pagina + 1) }}" {% if pagina >= total_paginas %}tabindex="-1" aria-disabled="true"{% endif %}>Siguiente</a>
+      </li>
+    </ul>
+  </nav>
+  {% endif %}
 </div>
 {% if rol != 'EJECUTIVO' %}{% include 'registros/nuevo.html' %}{% endif %}
 {% endblock %}
