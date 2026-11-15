@@ -66,13 +66,13 @@ Mientras NTT DATA habilita el proyecto de GCP (S-12), la misma imagen de Cloud R
 
 | # | Funcionalidad del OnePage | Dónde se ve | Qué hace |
 |:-:|---|---|---|
-| 1 | Crear oportunidad o demanda con sus campos | *Nuevo registro* | Tres tipos: oportunidad (Pendiente, flujo 1, P 10 %, C 90 %), demanda directa (Adjudicada, flujo 3–5, P 100 %, con motivo) y continuidad con ficha de contrato (solo Operaciones). Código `OPD-####`, validación en el servidor sin guardado parcial y vista previa del cálculo antes de guardar |
+| 1 | Crear oportunidad o demanda con sus campos | *Registros* › botón *Nuevo registro* (modal) | Tres tipos: oportunidad (Pendiente, flujo 1, P 10 %, C 90 %), demanda directa (Adjudicada, flujo 3–5, P 100 %, con motivo) y continuidad con ficha de contrato (solo Operaciones). Código `OPD-####`, validación en el servidor sin guardado parcial y vista previa del cálculo antes de guardar |
 | 2 | Bitácora | Ficha › *Bitácora* | Entradas con tipo, autor, fecha y hora, próxima acción y fecha compromiso; no se editan ni se borran. Cada cambio de estado deja su entrada |
-| 3 | Perfiles y HC | Ficha › *Perfiles* | Agregar, editar y quitar perfiles. HC de 1 a 999 y dedicación de 1 a 100 %. Un cambio de HC exige motivo |
+| 3 | Perfiles y HC | Ficha › *Perfiles* | Agregar, editar y quitar perfiles. HC de 1 a 999 y dedicación de 1 a 100 %. Un cambio de HC exige motivo | 
 | 4 | Tarifas | Ficha › *Perfiles* › *Cambiar tarifa* | Historia de tarifas por perfil, sin superposición; la nueva rige desde su mes y no reescribe los anteriores |
 | 5 | Probabilidad y confiabilidad | Ficha › *Probabilidad · Confiabilidad* | P del catálogo en Pendiente; 100 % fijo al adjudicar (H-01). C solo por Operaciones. Ambas con motivo y vigencia mensual. El cambio de flujo en Pendiente sugiere la P |
 | 6 | Observaciones y fechas | Ficha › *Datos del registro* | Observaciones separadas de la bitácora; fechas de ingreso, fin de vigencia, adjudicación y cierre. Bloqueo optimista: si otra persona guardó antes, se informa el conflicto (409) sin pisar los datos |
-| 7 | Mantenedor de la MAB | *Parámetros MAB* | Horas mensuales con vigencia mensual (180 h iniciales, S-01), solo Operaciones, auditadas con su impacto en el Forecast. El detalle del cálculo de cada registro muestra la fórmula y sus componentes |
+| 7 | Mantenedor de la MAB | *Parámetros MAB* | Horas mensuales (180 h iniciales, S-01) y confiabilidad inicial (90 %) con vigencia mensual, solo Operaciones; cada cambio exige motivo y queda auditado con valores anterior/nuevo e impacto en el Forecast. La confiabilidad se aplica a nuevas oportunidades y demandas; no modifica registros existentes. El detalle del cálculo de cada registro muestra la fórmula y sus componentes |
 | 8 | Dashboard ejecutivo | *Dashboard* | Los 11 datos del OnePage, más Backlog contractual, Backlog confirmado, meta, gap y cobertura. Además: gráfico de 12 meses con tabla equivalente, vista de 3, 6 o 12 meses y 11 filtros combinables. Cortes por sector, owner, cliente, estado y flujo; alertas de ingresos a 30, 60 y 90 días, contratos por vencer y liberaciones. Cada indicador abre su lista de registros, y cada registro, su detalle mes a mes (3 interacciones o menos, SC-009) |
 | 9 | Auditoría completa | *Auditoría* y ficha | Un evento por campo, con usuario, fecha y hora, valor anterior y nuevo, motivo, fecha efectiva e impacto en la MAB y el Forecast de 12 meses. Filtros por registro, campo, usuario y fechas. Solo lectura: `PUT` y `DELETE` responden 405 |
 
@@ -109,7 +109,7 @@ Mientras NTT DATA habilita el proyecto de GCP (S-12), la misma imagen de Cloud R
 ### Recorrido de 5 minutos
 
 1. **Operaciones:** entra al *Dashboard*. Revisa el Forecast y la serie mensual contra la meta. Abre una cifra (por ejemplo, *Backlog confirmado*) para ver sus registros y, desde ahí, un registro con su cálculo mes a mes; cada mes se despliega con sus componentes.
-2. **Líder 1:** crea una oportunidad en *Nuevo registro* con un perfil de 3 HC a $2.600/h. Antes de guardar, la vista previa muestra una Base de $1.404.000 al mes con 180 h.
+2. **Líder 1:** desde *Registros*, abre el modal con *Nuevo registro* y crea una oportunidad con un perfil de 3 HC a $2.600/h. Antes de guardar, la vista previa muestra una Base de $1.404.000 al mes con 180 h.
 3. En la ficha, cambia el flujo a *2 · Propuesta en curso* (la P sugerida pasa a 25 %). Después adjudica: el tipo pasa a Demanda, la P a 100 % y el registro aparece en el Backlog confirmado.
 4. Agrega una entrada de bitácora y revisa la *Auditoría* de la ficha: cada campo cambiado tiene su motivo y su impacto en el Forecast.
 5. **Operaciones:** en *Parámetros MAB*, cambia las horas mensuales desde un mes futuro. Los meses anteriores no cambian; los siguientes sí, y el cambio queda auditado.

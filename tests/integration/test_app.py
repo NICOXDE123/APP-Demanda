@@ -97,7 +97,20 @@ def test_alta_invalida_no_guarda_nada(app):
     r = cliente.post("/registros", data={"csrf_token": csrf, "tipo": "OPORTUNIDAD", "servicio_proyecto": "",
                                          "p1_hc": "0", "p1_tarifa": "100", "p1_ingreso": SIGUIENTE.isoformat()})
     assert r.status_code == 422 and "No se guardó" in r.text
+    assert 'id="alta-dialog"' in r.text and "data-dialog-open-on-load" in r.text
     assert len(app.state.almacen.registros.datos) == antes
+
+
+def test_alta_se_abre_como_modal_desde_registros(app):
+    cliente, _ = entrar(app, "lider1@example.test")
+    pagina = cliente.get("/registros?activos=1").text
+
+    assert 'aria-controls="alta-dialog" data-dialog-open' in pagina
+    assert '<dialog id="alta-dialog"' in pagina
+    assert 'href="/registros/nuevo"' not in pagina
+    assert cliente.get("/registros/nuevo", follow_redirects=False).headers["location"] == \
+        "/registros?activos=1&nuevo=1"
+    assert "data-dialog-open-on-load" in cliente.get("/registros?nuevo=1").text
 
 
 def test_ciclo_de_vida_con_auditoria_por_campo_e_impacto(app):
@@ -179,6 +192,41 @@ def test_horas_con_vigencia_no_reescriben_meses_anteriores(app):
                                                   "motivo": "x"}).status_code == 403
 
 
+def test_confiabilidad_inicial_editable_vigente_y_auditada(app):
+    ops, csrf = entrar(app, "operaciones@example.test")
+    anterior = alta(app, ops, csrf)
+    inicio_mes = date.today().replace(day=1)
+
+    r = ops.post("/parametros/confiabilidad-inicial", data={
+        "csrf_token": csrf, "valor": "40", "desde": inicio_mes.isoformat(), "motivo": "Ajuste de política",
+    }, follow_redirects=False)
+
+    assert r.status_code == 303
+    assert app.state.almacen.registros.obtener(anterior).confiabilidad_bp == 9_000
+    nuevo = alta(app, ops, csrf)
+    assert app.state.almacen.registros.obtener(nuevo).confiabilidad_bp == 4_000
+    demanda = alta(app, ops, csrf, tipo="DEMANDA", flujo="PROPUESTA_ENTREGADA", motivo="Adjudicación")
+    assert app.state.almacen.registros.obtener(demanda).confiabilidad_bp == 4_000
+
+    evento = next(e for e in app.state.almacen.auditoria.todos() if e.campo == "confiabilidad_inicial")
+    assert (evento.valor_anterior, evento.valor_nuevo, evento.motivo, evento.fecha_efectiva) == (
+        90, 40, "Ajuste de política", inicio_mes,
+    )
+    assert evento.mab_antes == evento.mab_despues
+    assert evento.forecast_antes == evento.forecast_despues
+
+    parametros = ops.get("/parametros").text
+    assert "Historia de confiabilidad inicial" in parametros
+    assert "40 %" in parametros and "90 %" in parametros
+    auditoria = ops.get("/auditoria?campo=confiabilidad_inicial").text
+    assert "Ajuste de política" in auditoria and "90 %" in auditoria and "40 %" in auditoria
+
+    lider, csrf_lider = entrar(app, "lider1@example.test")
+    assert lider.post("/parametros/confiabilidad-inicial", data={
+        "csrf_token": csrf_lider, "valor": "50", "desde": inicio_mes.isoformat(), "motivo": "x",
+    }).status_code == 403
+
+
 def test_dashboard_filtra_y_los_totales_son_la_suma_de_lo_visible(app):
     ops, _ = entrar(app, "operaciones@example.test")
     assert ops.get("/").status_code == 200
@@ -192,3 +240,95 @@ def test_dashboard_filtra_y_los_totales_son_la_suma_de_lo_visible(app):
         suma += tablero(app.state.almacen, app.state.calculo, usuario, Filtros(sector_id=s.id))["kpi"]["forecast"]
         assert ops.get(f"/registros?sector={s.id}").status_code == 200
     assert suma == total
+
+
+def test_navegacion_identifica_seccion_y_conserva_retorno_local(app):
+    from urllib.parse import quote, parse_qs, urlsplit
+
+    cliente, csrf = entrar(app, "lider1@example.test")
+    rid = alta(app, cliente, csrf)
+    lista = "/registros?q=Mesa&meses=3&desde=2027-01"
+    pagina = cliente.get(lista).text
+    assert 'aria-current="page"' in pagina
+    assert "volver=" in pagina
+    ficha = cliente.get(f"/registros/{rid}?volver={quote(lista, safe='')}").text
+    assert 'aria-current="location"' in ficha
+    assert 'href="/registros?q=Mesa&amp;meses=3&amp;desde=2027-01"' in ficha
+    for destino in ("https://example.test", "//example.test", "https://[", "/registros/otro", "/registros?x=\nmal"):
+        pagina = cliente.get(f"/registros/{rid}", params={"volver": destino}).text
+        assert 'href="/registros?activos=1"' in pagina
+    guardado = accion(app, cliente, csrf, rid, "bitacora", contenido="Seguimiento sintético", volver=lista)
+    assert parse_qs(urlsplit(guardado.headers["location"]).query)["volver"] == [lista]
+
+
+def test_error_web_es_html_y_validacion_api_sigue_json(app):
+    cliente, _ = entrar(app, "operaciones@example.test")
+    invalida = cliente.get("/registros/no-es-uuid")
+    assert invalida.status_code == 422
+    assert "text/html" in invalida.headers["content-type"]
+    assert "El enlace del registro no es válido" in invalida.text
+    assert "No encontramos la página solicitada" in cliente.get("/no-existe").text
+    api = cliente.get("/api/v1/registros/no-es-uuid/auditoria")
+    assert api.status_code == 422 and "detail" in api.json()
+
+
+def test_alta_error_identifica_hc_y_conserva_campos(app):
+    cliente, csrf = entrar(app, "lider1@example.test")
+    respuesta = cliente.post("/registros", data={
+        "csrf_token": csrf, "tipo": "OPORTUNIDAD", "servicio_proyecto": "Borrador sintético",
+        "p1_hc": "", "p1_tarifa": "2.600", "p1_ingreso": SIGUIENTE.isoformat(),
+    })
+    assert respuesta.status_code == 422
+    assert 'href="#p1_hc"' in respuesta.text
+    assert 'id="p1_hc"' in respuesta.text and 'aria-invalid="true"' in respuesta.text
+    assert "Completa HC con un número entero" in respuesta.text
+    assert 'value="Borrador sintético"' in respuesta.text
+
+
+def test_error_tarifa_conserva_borrador_solo_en_formulario_afectado(app):
+    cliente, csrf = entrar(app, "lider1@example.test")
+    rid = alta(app, cliente, csrf)
+    perfil = app.state.almacen.perfiles.listar_por_registro(rid)[0]
+    respuesta = accion(app, cliente, csrf, rid, f"perfiles/{perfil.id}/tarifa",
+                       tarifa="mala", desde=SIGUIENTE.isoformat(), motivo="Borrador de tarifa")
+    assert respuesta.status_code == 422
+    assert 'name="tarifa"' in respuesta.text and 'value="mala"' in respuesta.text
+    assert respuesta.text.count('value="Borrador de tarifa"') == 1
+    assert 'data-error-summary' in respuesta.text
+
+
+def test_conflicto_conserva_version_del_borrador_hasta_revision(app):
+    cliente, csrf = entrar(app, "lider1@example.test")
+    rid = alta(app, cliente, csrf)
+    app.state.almacen.registros.obtener(rid).studio = True
+    respuesta = cliente.post(f"/registros/{rid}/editar", data={
+        "csrf_token": csrf, "version": "0", "servicio_proyecto": "Mi borrador",
+        "observaciones": "Texto pendiente", "cuenta": "Cuenta borrador",
+    })
+    assert respuesta.status_code == 409
+    assert 'value="Cuenta borrador"' in respuesta.text and "Texto pendiente" in respuesta.text
+    assert 'name="version" value="0"' in respuesta.text
+    assert "checked" not in re.search(r'<input[^>]*name="studio"[^>]*>', respuesta.text).group(0)
+    assert "Revisar versión vigente" in respuesta.text
+
+
+def test_error_parametro_conserva_valores_y_no_modifica_historia(app):
+    cliente, csrf = entrar(app, "operaciones@example.test")
+    antes = len(app.state.almacen.parametros.listar("horas_mensuales"))
+    respuesta = cliente.post("/parametros/horas", data={
+        "csrf_token": csrf, "horas": "0", "desde": SIGUIENTE.isoformat(), "motivo": "Ajuste pendiente",
+    })
+    assert respuesta.status_code == 422
+    assert 'value="0"' in respuesta.text
+    assert respuesta.text.count('value="Ajuste pendiente"') == 1
+    assert len(app.state.almacen.parametros.listar("horas_mensuales")) == antes
+
+
+def test_vacios_dashboard_y_auditoria_explican_recuperacion(app):
+    cliente, _ = entrar(app, "operaciones@example.test")
+    vacio = cliente.get("/?q=sin-coincidencias-auditoria").text
+    assert "No hay registros con estos filtros" in vacio
+    assert "Las metas" in vacio and "Limpiar filtros" in vacio
+    assert 'href="/auditoria"' in cliente.get("/auditoria?codigo=OPD-0000").text
+    app.state.almacen.auditoria.datos.clear()
+    assert "Todavía no hay eventos registrados" in cliente.get("/auditoria").text

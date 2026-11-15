@@ -179,6 +179,18 @@ class Period:
             return Period(self.anio - 1, 12)
         return Period(self.anio, self.mes - 1)
 
+    def retroceder(self, n: int) -> "Period":
+        p = self
+        for _ in range(n):
+            p = p.anterior()
+        return p
+
+    def avanzar(self, n: int) -> "Period":
+        p = self
+        for _ in range(n):
+            p = p.siguiente()
+        return p
+
     @classmethod
     def serie(cls, desde: "Period", cantidad: int) -> list["Period"]:
         if cantidad < 1:

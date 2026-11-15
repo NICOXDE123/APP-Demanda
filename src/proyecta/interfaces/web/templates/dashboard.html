@@ -6,104 +6,227 @@
 {% set accion = '/' %}{% include '_filtros.html' %}
 {% set q = filtros.a_query() %}
 {% set k = kpi %}
-<div class="row g-2 mb-3" role="list" aria-label="Indicadores">
-  {% for nombre, valor, enlace, ayuda in [
-    ('Forecast', k.forecast|pesos, '/registros?' ~ q, 'Backlog contractual + MAB'),
-    ('MAB', k.mab|pesos, '/registros?' ~ q, 'Base × probabilidad × confiabilidad'),
-    ('Backlog contractual', k.backlog|pesos, '/registros?' ~ filtros.a_query(tipo='CONTINUIDAD'), 'Continuidades vigentes'),
-    ('Backlog confirmado', k.confirmado|pesos, '/registros?' ~ filtros.a_query(confirmado='1'), 'Vista de la MAB con P = 100 %'),
-    ('Ingresos potenciales', k.potencial|pesos, '/registros?' ~ q, 'Base sin ponderar + Backlog'),
-    ('Meta', k.meta|pesos, '#sectores', 'Suma de metas por sector'),
-    ('Gap', k.gap|pesos, '#sectores', ('Cobertura ' ~ (k.cobertura_bp|pct)) if k.cobertura_bp is not none else 'Sin meta'),
-    ('HC proyectado', k.hc_inicio ~ ' → ' ~ k.hc_fin, '/registros?' ~ q, 'Cierre del primer y último mes'),
-    ('Oportunidades activas', k.oportunidades, '/registros?' ~ filtros.a_query(tipo='OPORTUNIDAD', estado='PENDIENTE'), 'Pendientes'),
-    ('Demandas confirmadas', k.demandas, '/registros?' ~ filtros.a_query(tipo='DEMANDA', activos='1'), 'Adjudicadas o en curso'),
-    ('Probabilidad media', k.probabilidad_bp|pct, '/registros?' ~ q, 'Ponderada por la Base'),
-    ('Confiabilidad media', k.confiabilidad_bp|pct, '/registros?' ~ q, 'Ponderada por la Base'),
-  ] %}
-  <div class="col-6 col-md-4 col-xl-2" role="listitem">
-    <a class="kpi card card-body py-2" href="{{ enlace }}">
-      <span class="small text-secondary">{{ nombre }}</span>
-      <span class="valor">{{ valor }}</span>
-      <span class="small-help">{{ ayuda }}</span>
-    </a>
+<p class="small mb-2"><strong>{{ k.registros }}</strong> registro(s) con estos filtros. Las metas corresponden al período y líderes visibles; los filtros de cliente, estado o búsqueda no reducen por sí solos las metas.</p>
+{% if not k.registros %}<div class="alert alert-info" role="status"><strong>No hay registros con estos filtros.</strong>
+  <p class="mb-1">No hay ingresos coincidentes para calcular. La meta y su brecha pueden seguir visibles como referencia.</p><a href="/" class="alert-link">Limpiar filtros</a></div>{% endif %}
+
+<ul class="nav nav-tabs mb-3" id="tablero-subpestanas" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" id="tab-financiero-btn" data-tab-target="#tab-financiero" type="button" role="tab" aria-selected="true" aria-controls="tab-financiero">
+      Resumen financiero
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="tab-operativo-btn" data-tab-target="#tab-operativo" type="button" role="tab" aria-selected="false" aria-controls="tab-operativo">
+      Detalle operativo y comercial
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content" id="tablero-pestanas-contenido">
+  <div class="tab-pane active" id="tab-financiero" role="tabpanel" aria-labelledby="tab-financiero-btn">
+    <div class="row g-2 mb-3" role="list" aria-label="Indicadores">
+      {% for nombre, valor, enlace, ayuda, definicion, calculo in [
+        ('Forecast', k.forecast|pesos, '/registros?' ~ q, 'Backlog contractual + MAB',
+         'Proyección consolidada de ingresos esperados en el horizonte seleccionado. Representa la facturación total estimada del negocio integrando contratos vigentes y nuevas oportunidades.',
+         '`Forecast = Backlog contractual + MAB`. Suma mes a mes de los montos redondeados a CLP de cada registro visible. Cada registro pertenece estrictamente a una sola bolsa por mes (sin doble conteo).'),
+        ('MAB', k.mab|pesos, '/registros?' ~ q, 'Base × probabilidad × confiabilidad',
+         'Proyección de ingresos de nuevas oportunidades y demandas en cartera, ponderada por el avance comercial y la certidumbre operativa.',
+         '`MAB = Base × Probabilidad (%) × Confiabilidad (%)`. Donde `Base = Σ (HC × Tarifa/hora × Horas_mes × Fracción_activa)`. Prorratea altas, bajas o cancelaciones según fecha efectiva.'),
+        ('Backlog contractual', k.backlog|pesos, '/registros?' ~ filtros.a_query(tipo='CONTINUIDAD'), 'Continuidades vigentes',
+         'Facturación asegurada y comprometida formalmente mediante contratos vigentes de servicios de continuidad ya acordados con clientes.',
+         'Suma de `Monto mensual pactado × Fracción activa del contrato` (o Base de sus perfiles al 100 % si no tiene monto fijo mensual) para registros de tipo Continuidad. No aplica descuento por probabilidad ni confiabilidad (ambas 100 %).'),
+        ('Backlog confirmado', k.confirmado|pesos, '/registros?' ~ filtros.a_query(confirmado='1'), 'Vista de la MAB con P = 100 %',
+         'Vista de control del pipeline para demandas ya adjudicadas con perfiles y fecha confirmada (P = 100 %), pero aún sujetas a confiabilidad operativa.',
+         'Suma de la MAB de registros con `Probabilidad = 100 %` aplicando su Confiabilidad (`MAB = Base × 100 % × Confiabilidad`). Es una vista filtrada de la MAB, no una bolsa separada ni suma adicional al Forecast.'),
+        ('Meta', k.meta|pesos, '#lideres', 'Suma de metas por líder',
+         'Objetivo comercial de ingresos asignado por Operaciones a los líderes para los meses comprendidos en el horizonte de consulta.',
+         'Suma de las metas comerciales mensuales (`meta_mes`) en CLP registradas para los líderes en el período visible.'),
+        ('Gap', k.gap|pesos, '#lideres', ('Cobertura ' ~ (k.cobertura_bp|pct)) if k.cobertura_bp is not none else 'Sin meta',
+         'Diferencia entre la proyección estimada de ingresos (Forecast) y el objetivo comercial fijado (Meta). Positivo (+) indica superávit sobre la meta; negativo (−) indica que falta por llegar.',
+         '`Gap = Forecast − Meta`. Positivo (+) indica superávit o exceso sobre la meta; negativo (−) indica déficit o brecha por cubrir. Cobertura: `(Forecast / Meta) × 100 %` (cuando Meta > 0).'),
+        ('HC proyectado', k.hc_inicio ~ ' → ' ~ k.hc_fin, '/registros?' ~ q, 'Cierre del primer y último mes',
+         'Dotación de personal equivalente (Headcount) requerida para la entrega de servicios al inicio y al cierre del horizonte seleccionado.',
+         'Dotación acumulada al cierre de cada mes: `HC_cierre = HC_mes_anterior + Altas − Bajas`. Solo considera perfiles activos en sus fechas de vigencia.'),
+        ('Oportunidades activas', k.oportunidades, '/registros?' ~ filtros.a_query(tipo='OPORTUNIDAD', estado='PENDIENTE'), 'Pendientes',
+         'Iniciativas comerciales abiertas en etapas de prospección, formulación o negociación técnica/comercial que aún no han sido adjudicadas ni cerradas.',
+         'Conteo de registros con `Tipo = Oportunidad` y `Estado = Pendiente`.'),
+        ('Demandas confirmadas', k.demandas, '/registros?' ~ filtros.a_query(tipo='DEMANDA', activos='1'), 'Adjudicadas o en curso',
+         'Servicios o proyectos ganados formalmente que ya fueron adjudicados por el cliente o que se encuentran en ejecución operativa.',
+         'Conteo de registros con `Tipo = Demanda` y `Estado` en Adjudicada o En Curso.'),
+      ] %}
+      <div class="col-6 col-md-4 col-xl-4" role="listitem">
+        <div class="kpi card card-body py-2 position-relative" data-ayuda-titulo="{{ nombre }}" data-ayuda-def="{{ definicion }}" data-ayuda-calc="{{ calculo }}">
+          <div class="d-flex align-items-center justify-content-between">
+            <span class="small text-secondary">{{ nombre }}</span>
+            <button type="button" class="btn-ayuda-kpi" aria-label="Ayuda sobre {{ nombre }}" data-ayuda-titulo="{{ nombre }}" data-ayuda-def="{{ definicion }}" data-ayuda-calc="{{ calculo }}">
+              <span aria-hidden="true" class="ayuda-icono">ℹ</span>
+            </button>
+          </div>
+          <a class="valor stretched-link text-decoration-none text-reset" href="{{ enlace }}">{{ valor }}</a>
+          <span class="small-help">{{ ayuda }}</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="row g-3 mb-3">
+      <div class="col-12 col-xl-7"><div class="card card-body">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+          <h2 class="h6 mb-0">Forecast mensual vs. meta · CLP</h2>
+          <div class="d-flex align-items-center gap-2">
+            <label for="vista-grafico" class="small text-secondary mb-0 fw-semibold">Vista del gráfico:</label>
+            <select id="vista-grafico" class="form-select form-select-sm w-auto" aria-label="Horizonte temporal del gráfico">
+              <option value="default" {% if vista_grafico in ('default', '3m_ant_3m_fut') %}selected{% endif %}>3 meses ant. + 3 meses fut. (Default)</option>
+              <option value="ultimos_3m" {% if vista_grafico == 'ultimos_3m' %}selected{% endif %}>Últimos 3 meses</option>
+              <option value="ultimos_6m" {% if vista_grafico == 'ultimos_6m' %}selected{% endif %}>Últimos 6 meses</option>
+              <option value="ultimos_12m" {% if vista_grafico == 'ultimos_12m' %}selected{% endif %}>Últimos 12 meses</option>
+              <option value="futuro_3m" {% if vista_grafico == 'futuro_3m' %}selected{% endif %}>A futuro 3 meses</option>
+              <option value="futuro_6m" {% if vista_grafico == 'futuro_6m' %}selected{% endif %}>A futuro 6 meses</option>
+            </select>
+          </div>
+        </div>
+        <p class="small-help mb-1">Barras: Backlog + MAB. Meta: línea discontinua. Importes en millones de CLP.
+          <a href="#serie-mensual">Ver datos mensuales</a></p>
+        <fieldset class="grafico-controles small mb-2"><legend class="small mb-1">Series visibles</legend>
+          <label class="me-3"><input type="checkbox" data-serie="0" checked>Backlog contractual (sólido)</label>
+          <label class="me-3"><input type="checkbox" data-serie="1" checked>MAB (trama)</label>
+          <label><input type="checkbox" data-serie="2" checked>Meta (línea discontinua)</label>
+        </fieldset><span id="estado-grafico" class="visually-hidden" role="status"></span>
+        <p class="small-help d-flex align-items-center gap-1" id="resumen-delta-cobertura">
+          <span id="texto-delta-cobertura">Delta del horizonte: {{ k.gap|pesos }}. {% if k.cobertura_bp is not none %}Cobertura {{ k.cobertura_bp|pct }}.{% else %}Sin meta para calcular cobertura.{% endif %}</span>
+          <button type="button" class="btn-ayuda-inline" aria-label="Ayuda sobre Delta y Cobertura" data-ayuda-titulo="Delta y Cobertura del horizonte" data-ayuda-def="Comparación consolidada entre la proyección estimada de ingresos y el objetivo comercial global para todos los meses visibles." data-ayuda-calc="`Delta = Forecast total − Meta total`. Cobertura: `(Forecast / Meta) × 100 %`. Positivo (+) indica superávit sobre la meta; negativo (−) indica déficit pendiente.">
+            <span aria-hidden="true" class="ayuda-icono">ℹ</span>
+          </button>
+        </p>
+        <div class="grafico"><canvas id="grafico" role="img" aria-label="Gráfico de barras apiladas de Backlog contractual y MAB por mes, con la meta como línea; los valores están en la tabla contigua."></canvas></div>
+        <script type="application/json" id="datos-grafico">{{ grafico|safe }}</script>
+        <script type="application/json" id="datos-serie-completa">{{ serie_completa_json|safe }}</script>
+      </div></div>
+      <div class="col-12 col-xl-5"><div class="card card-body">
+        <h2 class="h6" id="serie-mensual" tabindex="-1">Serie mensual · CLP y HC</h2>
+        <div class="tabla-scroll" role="region" tabindex="0" aria-label="Serie mensual de proyecciones"><table id="tabla-serie-mensual" class="table table-sm small mb-0">
+          <thead><tr>
+            <th><button type="button" class="th-ayuda-btn" data-ayuda-titulo="Mes" data-ayuda-def="Período mensual del calendario evaluado dentro del horizonte proyectado." data-ayuda-calc="Horizonte móvil evaluado para el gráfico y la tabla."><span>Mes</span><span class="ayuda-icono" aria-hidden="true">ℹ</span></button></th>
+            <th class="num"><button type="button" class="th-ayuda-btn num" data-ayuda-titulo="Backlog contractual mensual" data-ayuda-def="Ingresos asegurados en el mes por servicios vigentes de continuidad pactados por contrato." data-ayuda-calc="Suma en el mes de `Monto mensual × Fracción activa del contrato` (tipo Continuidad)."><span>Backlog</span><span class="ayuda-icono" aria-hidden="true">ℹ</span></button></th>
+            <th class="num"><button type="button" class="th-ayuda-btn num" data-ayuda-titulo="MAB mensual" data-ayuda-def="Facturación estimada en el mes por oportunidades y demandas ponderadas por probabilidad y confiabilidad." data-ayuda-calc="Suma en el mes de `Base(r, m) × Probabilidad(r) × Confiabilidad(r)` de registros en bolsa MAB."><span>MAB</span><span class="ayuda-icono" aria-hidden="true">ℹ</span></button></th>
+            <th class="num"><button type="button" class="th-ayuda-btn num" data-ayuda-titulo="Forecast mensual" data-ayuda-def="Proyección total de facturación esperada para ese mes específico." data-ayuda-calc="`Backlog contractual del mes + MAB del mes`."><span>Forecast</span><span class="ayuda-icono" aria-hidden="true">ℹ</span></button></th>
+            <th class="num"><button type="button" class="th-ayuda-btn num" data-ayuda-titulo="Meta comercial mensual" data-ayuda-def="Cuota comercial establecida para el mes en los líderes con registros visibles." data-ayuda-calc="Suma de las metas de líderes vigentes para dicho mes en el mantenedor."><span>Meta</span><span class="ayuda-icono" aria-hidden="true">ℹ</span></button></th>
+            <th class="num"><button type="button" class="th-ayuda-btn num" data-ayuda-titulo="Headcount (HC) proyectado" data-ayuda-def="Dotación de personal equivalente activa al cierre del mes." data-ayuda-calc="`HC cierre anterior + Altas del mes − Bajas del mes` según las fechas efectivas de los perfiles."><span>HC</span><span class="ayuda-icono" aria-hidden="true">ℹ</span></button></th>
+          </tr></thead>
+          <tbody id="cuerpo-serie-mensual">{% for m in meses %}<tr><td>{{ m.mes|mes }}</td><td class="num">{{ m.backlog_clp|pesos }}</td><td class="num">{{ m.mab_clp|pesos }}</td>
+            <td class="num fw-semibold">{{ m.forecast_clp|pesos }}</td><td class="num">{{ meta_mes[m.mes]|pesos }}</td><td class="num">{{ m.hc }}</td></tr>{% endfor %}</tbody>
+          <tfoot id="pie-serie-mensual"><tr class="fw-semibold">
+            <td><button type="button" class="th-ayuda-btn" data-ayuda-titulo="Totales consolidados de la serie" data-ayuda-def="Consolidado acumulado de ingresos y metas para el horizonte completo analizado." data-ayuda-calc="Suma aritmética directa de los valores mensuales ya redondeados a CLP enteros (RN-88)."><span>Total</span><span class="ayuda-icono" aria-hidden="true">ℹ</span></button></td>
+            <td class="num">{{ k.backlog|pesos }}</td><td class="num">{{ k.mab|pesos }}</td>
+            <td class="num">{{ k.forecast|pesos }}</td><td class="num">{{ k.meta|pesos }}</td><td></td></tr></tfoot>
+        </table></div>
+      </div></div>
+    </div>
   </div>
-  {% endfor %}
-</div>
 
-<div class="row g-3 mb-3">
-  <div class="col-12 col-xl-7"><div class="card card-body">
-    <h2 class="h6">Forecast mensual vs. meta</h2>
-    <div class="grafico"><canvas id="grafico" role="img" aria-label="Gráfico de barras apiladas de Backlog contractual y MAB por mes, con la meta como línea; los valores están en la tabla contigua."></canvas></div>
-    <script type="application/json" id="datos-grafico">{{ grafico|safe }}</script>
-  </div></div>
-  <div class="col-12 col-xl-5"><div class="card card-body">
-    <h2 class="h6">Serie mensual</h2>
-    <div class="tabla-scroll"><table class="table table-sm small mb-0">
-      <thead><tr><th>Mes</th><th class="num">Backlog</th><th class="num">MAB</th><th class="num">Forecast</th><th class="num">Meta</th><th class="num">HC</th></tr></thead>
-      <tbody>{% for m in meses %}<tr><td>{{ m.mes|mes }}</td><td class="num">{{ m.backlog_clp|pesos }}</td><td class="num">{{ m.mab_clp|pesos }}</td>
-        <td class="num fw-semibold">{{ m.forecast_clp|pesos }}</td><td class="num">{{ meta_mes[m.mes]|pesos }}</td><td class="num">{{ m.hc }}</td></tr>{% endfor %}</tbody>
-      <tfoot><tr class="fw-semibold"><td>Total</td><td class="num">{{ k.backlog|pesos }}</td><td class="num">{{ k.mab|pesos }}</td>
-        <td class="num">{{ k.forecast|pesos }}</td><td class="num">{{ k.meta|pesos }}</td><td></td></tr></tfoot>
-    </table></div>
-  </div></div>
-</div>
+  <div class="tab-pane d-none" id="tab-operativo" role="tabpanel" aria-labelledby="tab-operativo-btn">
+    <div class="row g-3 mb-3">
+      <div class="col-12 col-lg-6" id="lideres"><div class="card card-body">
+        <h2 class="h6">Por líder · meta y gap</h2>
+        <div class="tabla-scroll" role="region" tabindex="0" aria-label="Proyecciones por líder"><table class="table table-sm small mb-0">
+          <thead><tr>
+            <th><button type="button" class="th-ayuda-btn" data-ayuda-titulo="Líder (Owner)" data-ayuda-def="Líder asignado a la gestión comercial u operativa del registro." data-ayuda-calc="Identificador de usuario líder en el campo owner_id del registro."><span>Líder</span><span class="ayuda-icono" aria-hidden="true">ℹ</span></button></th>
+            <th class="num"><button type="button" class="th-ayuda-btn num" data-ayuda-titulo="Registros por líder" data-ayuda-def="Cantidad de iniciativas a cargo de este líder." data-ayuda-calc="Conteo de registros visibles gestionados por el líder."><span>Registros</span><span class="ayuda-icono" aria-hidden="true">ℹ</span></button></th>
+            <th class="num"><button type="button" class="th-ayuda-btn num" data-ayuda-titulo="Forecast por líder" data-ayuda-def="Proyección total de facturación (`Backlog + MAB`) bajo la gestión del líder." data-ayuda-calc="Suma del Forecast de todos los registros del líder en el período."><span>Forecast</span><span class="ayuda-icono" aria-hidden="true">ℹ</span></button></th>
+            <th class="num"><button type="button" class="th-ayuda-btn num" data-ayuda-titulo="Meta del líder" data-ayuda-def="Objetivo comercial asignado específicamente a este líder." data-ayuda-calc="Suma de las metas mensuales vigentes del líder en el período seleccionado."><span>Meta</span><span class="ayuda-icono" aria-hidden="true">ℹ</span></button></th>
+            <th class="num"><button type="button" class="th-ayuda-btn num" data-ayuda-titulo="Gap por líder" data-ayuda-def="Desviación comercial respecto a la meta establecida para el líder." data-ayuda-calc="`Forecast del líder − Meta del líder`. Positivo (+) indica superávit sobre la meta; negativo (−) indica déficit o brecha por cubrir."><span>Gap</span><span class="ayuda-icono" aria-hidden="true">ℹ</span></button></th>
+          </tr></thead>
+          <tbody>{% for g in por_owner %}{% set meta_l = meta_owner.get(g.clave, 0) %}{% set gap_l = g.forecast - meta_l %}
+            <tr><td><a href="/registros?{{ filtros.a_query(owner=g.clave) }}">{{ nombre_usuario(g.clave) }}</a></td><td class="num">{{ g.registros }}</td>
+              <td class="num">{{ g.forecast|pesos }}</td><td class="num">{{ meta_l|pesos }}</td>
+              <td class="num {% if gap_l >= 0 %}text-success{% else %}text-danger{% endif %}">{{ gap_l|pesos }}</td></tr>{% else %}<tr><td colspan="5" class="text-secondary">Sin líderes con registros coincidentes.</td></tr>{% endfor %}</tbody>
+        </table></div>
+        <p class="small-help mb-0 mt-1">Gap positivo es superávit sobre la meta; negativo, déficit o brecha por cubrir.</p>
+      </div></div>
+      <div class="col-12 col-lg-6" id="sectores"><div class="card card-body">
+        <h2 class="h6">Por sector</h2>
+        <div class="tabla-scroll" role="region" tabindex="0" aria-label="Proyecciones por sector"><table class="table table-sm small mb-0">
+          <thead><tr>
+            <th><button type="button" class="th-ayuda-btn" data-ayuda-titulo="Sector" data-ayuda-def="Industria o división comercial a la que pertenece la iniciativa o cliente." data-ayuda-calc="Clasificación por catálogo comercial en el campo sector_id del registro."><span>Sector</span><span class="ayuda-icono" aria-hidden="true">ℹ</span></button></th>
+            <th class="num"><button type="button" class="th-ayuda-btn num" data-ayuda-titulo="Registros por sector" data-ayuda-def="Número de iniciativas (oportunidades, demandas y contratos) activas en el sector." data-ayuda-calc="Conteo de registros coincidentes con los filtros en ese sector."><span>Registros</span><span class="ayuda-icono" aria-hidden="true">ℹ</span></button></th>
+            <th class="num"><button type="button" class="th-ayuda-btn num" data-ayuda-titulo="Forecast por sector" data-ayuda-def="Proyección total de ingresos estimada para el sector en el horizonte." data-ayuda-calc="Suma de Forecast (`Backlog + MAB`) de todos los registros del sector."><span>Forecast</span><span class="ayuda-icono" aria-hidden="true">ℹ</span></button></th>
+          </tr></thead>
+          <tbody>{% for g in por_sector %}
+            <tr><td><a href="/registros?{{ filtros.a_query(sector=g.clave) }}">{{ cat(g.clave) }}</a></td><td class="num">{{ g.registros }}</td>
+              <td class="num">{{ g.forecast|pesos }}</td></tr>{% else %}<tr><td colspan="3" class="text-secondary">Sin sectores con registros coincidentes.</td></tr>{% endfor %}</tbody>
+        </table></div>
+        <h2 class="h6 mt-3">Principales clientes</h2>
+        <div class="tabla-scroll" role="region" tabindex="0" aria-label="Principales clientes"><table class="table table-sm small mb-0">
+          <thead><tr>
+            <th><button type="button" class="th-ayuda-btn" data-ayuda-titulo="Cliente" data-ayuda-def="Empresa o cuenta corporativa contratante del servicio." data-ayuda-calc="Clasificación normalizada por catálogo comercial en cliente_id."><span>Cliente</span><span class="ayuda-icono" aria-hidden="true">ℹ</span></button></th>
+            <th class="num"><button type="button" class="th-ayuda-btn num" data-ayuda-titulo="Registros por cliente" data-ayuda-def="Número de iniciativas o contratos activos con la cuenta." data-ayuda-calc="Conteo de registros vinculados al cliente."><span>Registros</span><span class="ayuda-icono" aria-hidden="true">ℹ</span></button></th>
+            <th class="num"><button type="button" class="th-ayuda-btn num" data-ayuda-titulo="Forecast por cliente" data-ayuda-def="Facturación total proyectada con este cliente en el horizonte analizado." data-ayuda-calc="Suma del Forecast (`Backlog + MAB`) de los registros del cliente."><span>Forecast</span><span class="ayuda-icono" aria-hidden="true">ℹ</span></button></th>
+          </tr></thead>
+          <tbody>{% for g in por_cliente %}<tr><td><a href="/registros?{{ filtros.a_query(cliente=g.clave) }}">{{ cat(g.clave) }}</a></td>
+            <td class="num">{{ g.registros }} reg.</td><td class="num">{{ g.forecast|pesos }}</td></tr>{% else %}<tr><td colspan="3" class="text-secondary">Sin clientes con registros coincidentes.</td></tr>{% endfor %}</tbody>
+        </table></div>
+      </div></div>
+    </div>
 
-<div class="row g-3 mb-3">
-  <div class="col-12 col-lg-6" id="sectores"><div class="card card-body">
-    <h2 class="h6">Por sector · meta y gap</h2>
-    <div class="tabla-scroll"><table class="table table-sm small mb-0">
-      <thead><tr><th>Sector</th><th class="num">Registros</th><th class="num">Forecast</th><th class="num">Meta</th><th class="num">Gap</th></tr></thead>
-      <tbody>{% for g in por_sector %}{% set meta_s = meta_sector.get(g.clave, 0) %}
-        <tr><td><a href="/registros?{{ filtros.a_query(sector=g.clave) }}">{{ cat(g.clave) }}</a></td><td class="num">{{ g.registros }}</td>
-          <td class="num">{{ g.forecast|pesos }}</td><td class="num">{{ meta_s|pesos }}</td>
-          <td class="num {% if meta_s - g.forecast > 0 %}text-danger{% else %}text-success{% endif %}">{{ (meta_s - g.forecast)|pesos }}</td></tr>{% endfor %}</tbody>
-    </table></div>
-    <p class="small-help mb-0 mt-1">Gap positivo es brecha; negativo, exceso sobre la meta.</p>
-  </div></div>
-  <div class="col-12 col-lg-6"><div class="card card-body">
-    <h2 class="h6">Por responsable (owner)</h2>
-    <div class="tabla-scroll"><table class="table table-sm small mb-0">
-      <thead><tr><th>Owner</th><th class="num">Registros</th><th class="num">MAB</th><th class="num">Forecast</th></tr></thead>
-      <tbody>{% for g in por_owner %}<tr><td><a href="/registros?{{ filtros.a_query(owner=g.clave) }}">{{ nombre_usuario(g.clave) }}</a></td>
-        <td class="num">{{ g.registros }}</td><td class="num">{{ g.mab|pesos }}</td><td class="num">{{ g.forecast|pesos }}</td></tr>{% endfor %}</tbody>
-    </table></div>
-    <h2 class="h6 mt-3">Principales clientes</h2>
-    <div class="tabla-scroll"><table class="table table-sm small mb-0">
-      <tbody>{% for g in por_cliente %}<tr><td><a href="/registros?{{ filtros.a_query(cliente=g.clave) }}">{{ cat(g.clave) }}</a></td>
-        <td class="num">{{ g.registros }} reg.</td><td class="num">{{ g.forecast|pesos }}</td></tr>{% endfor %}</tbody>
-    </table></div>
-  </div></div>
-</div>
-
-<div class="row g-3 mb-3">
-  <div class="col-12 col-lg-6"><div class="card card-body">
-    <h2 class="h6">Pipeline por estado</h2>
-    <table class="table table-sm small mb-3"><tbody>{% for g in por_estado %}
-      <tr><td><a href="/registros?{{ filtros.a_query(estado=g.clave) }}">{{ g.clave|etiqueta }}</a></td><td class="num">{{ g.registros }}</td><td class="num">{{ g.forecast|pesos }}</td></tr>{% endfor %}</tbody></table>
-    <h2 class="h6">Pipeline por flujo</h2>
-    <table class="table table-sm small mb-0"><tbody>{% for g in por_flujo|sort(attribute='clave') %}
-      <tr><td><a href="/registros?{{ filtros.a_query(flujo=g.clave) }}">{{ g.clave|etiqueta }}</a></td><td class="num">{{ g.registros }}</td><td class="num">{{ g.mab|pesos }}</td></tr>{% endfor %}</tbody></table>
-  </div></div>
-  <div class="col-12 col-lg-6"><div class="card card-body">
-    <h2 class="h6">Alertas</h2>
-    <h3 class="h6 small fw-semibold mt-1">Próximos ingresos (30 / 60 / 90 días)</h3>
-    {% if proximos %}<ul class="small mb-2">{% for x in proximos[:12] %}
-      <li><span class="badge text-bg-{{ 'danger' if x.tramo == 30 else 'warning' if x.tramo == 60 else 'secondary' }}">{{ x.tramo }} d</span>
-        <a href="/registros/{{ x.r.id }}">{{ x.r.codigo }}</a> · {{ x.r.servicio_proyecto }} · {{ x.fecha|fecha }}</li>{% endfor %}</ul>
-    {% else %}<p class="small text-secondary">Sin ingresos en los próximos 90 días.</p>{% endif %}
-    <h3 class="h6 small fw-semibold">Contratos por vencer o vencidos</h3>
-    {% if contratos %}<ul class="small mb-2">{% for x in contratos %}
-      <li><span class="badge text-bg-{{ 'danger' if x.dias < 30 else 'warning' }}">{{ x.estado }}</span>
-        <a href="/registros/{{ x.r.id }}">{{ x.c.codigo_contrato }}</a> · vence {{ x.c.fecha_fin|fecha }}</li>{% endfor %}</ul>
-    {% else %}<p class="small text-secondary">Sin contratos que venzan en 90 días.</p>{% endif %}
-    <h3 class="h6 small fw-semibold">Liberaciones de perfiles (90 días)</h3>
-    {% if liberaciones %}<ul class="small mb-2">{% for x in liberaciones %}
-      <li><a href="/registros/{{ x.r.id }}">{{ x.r.codigo }}</a> · {{ cat(x.p.nombre_perfil_id) }} · {{ x.p.hc }} HC · fin {{ x.p.fecha_fin|fecha }}</li>{% endfor %}</ul>
-    {% else %}<p class="small text-secondary">Sin liberaciones en 90 días.</p>{% endif %}
-    <h3 class="h6 small fw-semibold">Calidad del dato</h3>
-    <p class="small mb-0">{{ k.sin_perfiles }} registro(s) activo(s) sin perfiles.
-      <span class="text-secondary">El semáforo completo (US7) llega en la Entrega 3.</span></p>
-  </div></div>
+    <div class="row g-3 mb-3">
+      <div class="col-12 col-lg-6"><div class="card card-body">
+        <h2 class="h6">Pipeline por estado</h2>
+        <table class="table table-sm small mb-3"><thead><tr>
+          <th><button type="button" class="th-ayuda-btn" data-ayuda-titulo="Estado de gestión" data-ayuda-def="Situación administrativa actual en el ciclo de vida del registro." data-ayuda-calc="Valor del campo estado (Pendiente, Adjudicada, En Curso, StandBy, Cerrada, Cancelada)."><span>Estado</span><span class="ayuda-icono" aria-hidden="true">ℹ</span></button></th>
+          <th class="num"><button type="button" class="th-ayuda-btn num" data-ayuda-titulo="Registros por estado" data-ayuda-def="Cantidad de iniciativas que se encuentran en este estado." data-ayuda-calc="Conteo de registros clasificados en ese estado."><span>Registros</span><span class="ayuda-icono" aria-hidden="true">ℹ</span></button></th>
+          <th class="num"><button type="button" class="th-ayuda-btn num" data-ayuda-titulo="Forecast por estado" data-ayuda-def="Volumen de facturación proyectada según la etapa de ciclo de vida." data-ayuda-calc="Suma del Forecast de los registros en dicho estado."><span>Forecast</span><span class="ayuda-icono" aria-hidden="true">ℹ</span></button></th>
+        </tr></thead><tbody>{% for g in por_estado %}
+          <tr><td><a href="/registros?{{ filtros.a_query(estado=g.clave) }}">{{ g.clave|etiqueta }}</a></td><td class="num">{{ g.registros }}</td><td class="num">{{ g.forecast|pesos }}</td></tr>{% else %}<tr><td colspan="3" class="text-secondary">Sin estados con registros coincidentes.</td></tr>{% endfor %}</tbody></table>
+        <h2 class="h6">Pipeline por flujo</h2>
+        <table class="table table-sm small mb-0"><thead><tr>
+          <th><button type="button" class="th-ayuda-btn" data-ayuda-titulo="Flujo comercial" data-ayuda-def="Etapa de maduración en el embudo de ventas (1. RFP a 6. Perfiles seleccionados)." data-ayuda-calc="Campo flujo del registro, asociado a una probabilidad comercial estándar."><span>Flujo</span><span class="ayuda-icono" aria-hidden="true">ℹ</span></button></th>
+          <th class="num"><button type="button" class="th-ayuda-btn num" data-ayuda-titulo="Registros por flujo" data-ayuda-def="Cantidad de iniciativas comerciales en esta etapa del embudo." data-ayuda-calc="Conteo de registros clasificados en este flujo."><span>Registros</span><span class="ayuda-icono" aria-hidden="true">ℹ</span></button></th>
+          <th class="num"><button type="button" class="th-ayuda-btn num" data-ayuda-titulo="MAB por flujo" data-ayuda-def="Ingreso ponderado aportado por las iniciativas en esta etapa comercial." data-ayuda-calc="Suma de la MAB de los registros en esta etapa de flujo."><span>MAB</span><span class="ayuda-icono" aria-hidden="true">ℹ</span></button></th>
+        </tr></thead><tbody>{% for g in por_flujo|sort(attribute='clave') %}
+          <tr><td><a href="/registros?{{ filtros.a_query(flujo=g.clave) }}">{{ g.clave|etiqueta }}</a></td><td class="num">{{ g.registros }}</td><td class="num">{{ g.mab|pesos }}</td></tr>{% else %}<tr><td colspan="3" class="text-secondary">Sin flujos con registros coincidentes.</td></tr>{% endfor %}</tbody></table>
+      </div></div>
+      <div class="col-12 col-lg-6"><div class="card card-body">
+        <h2 class="h6">Alertas</h2>
+        <h3 class="h6 small fw-semibold mt-1 d-flex align-items-center justify-content-between">
+          <span>Próximos ingresos (30 / 60 / 90 días)</span>
+          <button type="button" class="btn-ayuda-seccion" aria-label="Ayuda sobre Próximos ingresos" data-ayuda-titulo="Próximos ingresos" data-ayuda-def="Alertas de inicio programado de servicios o incorporación de recursos en el corto plazo." data-ayuda-calc="Registros activos con fecha estimada de ingreso en los próximos 30, 60 o 90 días calendario. Tramo 30 d (rojo), 60 d (amarillo), 90 d (gris).">
+            <span class="ayuda-icono" aria-hidden="true">ℹ</span>
+          </button>
+        </h3>
+        {% if proximos %}<ul class="small mb-2">{% for x in proximos[:12] %}
+          <li><span class="badge text-bg-{{ 'danger' if x.tramo == 30 else 'warning' if x.tramo == 60 else 'secondary' }}">{{ x.tramo }} d</span>
+            <a href="/registros/{{ x.r.id }}">{{ x.r.codigo }}</a> · {{ x.r.servicio_proyecto }} · {{ x.fecha|fecha }}</li>{% endfor %}</ul>
+        {% else %}<p class="small text-secondary">Sin ingresos en los próximos 90 días.</p>{% endif %}
+        <h3 class="h6 small fw-semibold d-flex align-items-center justify-content-between">
+          <span>Contratos por vencer o vencidos</span>
+          <button type="button" class="btn-ayuda-seccion" aria-label="Ayuda sobre Contratos por vencer o vencidos" data-ayuda-titulo="Contratos por vencer o vencidos" data-ayuda-def="Contratos de continuidad que expiran en 90 días o menos, o que ya vencieron sin renovación." data-ayuda-calc="Contratos de continuidad con `fecha_fin ≤ hoy + 90 días`. Si días restantes < 0 se marca como Vencido y deja de sumar Backlog al mes siguiente.">
+            <span class="ayuda-icono" aria-hidden="true">ℹ</span>
+          </button>
+        </h3>
+        {% if contratos %}<ul class="small mb-2">{% for x in contratos %}
+          <li><span class="badge text-bg-{{ 'danger' if x.dias < 30 else 'warning' }}">{{ x.estado }}</span>
+            <a href="/registros/{{ x.r.id }}">{{ x.c.codigo_contrato }}</a> · vence {{ x.c.fecha_fin|fecha }}</li>{% endfor %}</ul>
+        {% else %}<p class="small text-secondary">Sin contratos que venzan en 90 días.</p>{% endif %}
+        <h3 class="h6 small fw-semibold d-flex align-items-center justify-content-between">
+          <span>Liberaciones de perfiles (90 días)</span>
+          <button type="button" class="btn-ayuda-seccion" aria-label="Ayuda sobre Liberaciones de perfiles" data-ayuda-titulo="Liberaciones de perfiles" data-ayuda-def="Profesionales cuya asignación finaliza en los próximos 90 días." data-ayuda-calc="Perfiles asignados con fecha_fin entre hoy y hoy + 90 días calendario. Anticipa disponibilidad para reubicación o nuevo staffing.">
+            <span class="ayuda-icono" aria-hidden="true">ℹ</span>
+          </button>
+        </h3>
+        {% if liberaciones %}<ul class="small mb-2">{% for x in liberaciones %}
+          <li><a href="/registros/{{ x.r.id }}">{{ x.r.codigo }}</a> · {{ cat(x.p.nombre_perfil_id) }} · {{ x.p.hc }} HC · fin {{ x.p.fecha_fin|fecha }}</li>{% endfor %}</ul>
+        {% else %}<p class="small text-secondary">Sin liberaciones en 90 días.</p>{% endif %}
+        <h3 class="h6 small fw-semibold d-flex align-items-center justify-content-between">
+          <span>Calidad del dato</span>
+          <button type="button" class="btn-ayuda-seccion" aria-label="Ayuda sobre Calidad del dato" data-ayuda-titulo="Calidad del dato (registros sin perfiles)" data-ayuda-def="Control preventivo de integridad que detecta registros activos sin perfiles de personal asignados." data-ayuda-calc="Conteo de registros activos (Pendiente, Adjudicada, En Curso) que tienen 0 perfiles. Sin perfiles no es posible costear horas, tarifas ni calcular la Base mensual.">
+            <span class="ayuda-icono" aria-hidden="true">ℹ</span>
+          </button>
+        </h3>
+        <p class="small mb-0">{{ k.sin_perfiles }} registro(s) activo(s) sin perfiles.
+          <span class="text-secondary">El semáforo completo (US7) llega en la Entrega 3.</span></p>
+      </div></div>
+    </div>
+  </div>
 </div>
 {% endblock %}

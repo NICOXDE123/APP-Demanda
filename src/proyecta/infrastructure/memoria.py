@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any, Sequence
 from uuid import UUID
 
@@ -30,7 +30,7 @@ from proyecta.domain.entities import (
     Usuario,
     VigenciaEstadoCalculo,
 )
-from proyecta.domain.enums import TipoCatalogo
+from proyecta.domain.enums import EntidadAuditoria, TipoCatalogo
 from proyecta.domain.value_objects import Period
 from proyecta.seed.synthetic import generar_semilla
 
@@ -150,6 +150,15 @@ class Vigencias:
         return vigencia
 
 
+def _ts_evento(x: Any) -> float:
+    dt = getattr(x, "fecha_hora", None) or getattr(x, "creado_en", None) or getattr(x, "momento", None)
+    if dt is None:
+        return 0.0
+    if dt.tzinfo is not None:
+        return dt.timestamp()
+    return dt.replace(tzinfo=timezone.utc).timestamp()
+
+
 @dataclass
 class SoloInsercion:
     """Bitácora y auditoría: listar y registrar, nada más (RN-78, RN-81)."""
@@ -158,10 +167,10 @@ class SoloInsercion:
 
     def listar_por_registro(self, registro_id: UUID) -> Sequence:
         return sorted((x for x in self.datos if x.registro_id == registro_id),
-                      key=lambda x: getattr(x, "fecha_hora", None) or x.creado_en, reverse=True)
+                      key=_ts_evento, reverse=True)
 
     def todos(self) -> Sequence:
-        return sorted(self.datos, key=lambda x: getattr(x, "fecha_hora", None) or x.creado_en, reverse=True)
+        return sorted(self.datos, key=_ts_evento, reverse=True)
 
     def registrar(self, entrada):
         self.datos.append(entrada)
@@ -211,11 +220,36 @@ class Catalogos:
 class Metas:
     datos: list[MetaComercial] = field(default_factory=list)
 
-    def obtener(self, sector_id: UUID, mes: date) -> MetaComercial | None:
-        return next((m for m in self.datos if m.sector_id == sector_id and m.mes == mes), None)
+    def obtener(self, sector_id: UUID | None = None, mes: date | None = None, *, lider_id: UUID | None = None) -> MetaComercial | None:
+        if lider_id:
+            if mes is not None:
+                return next((m for m in self.datos if m.lider_id == lider_id and m.mes == mes), None)
+            return self.vigente(lider_id, date.today())
+        return next((m for m in self.datos if (sector_id is None or m.sector_id == sector_id) and (mes is None or m.mes == mes)), None)
 
-    def listar(self, *, sector_id: UUID | None = None) -> Sequence[MetaComercial]:
-        return [m for m in self.datos if sector_id is None or m.sector_id == sector_id]
+    def listar(self, *, sector_id: UUID | None = None, lider_id: UUID | None = None) -> Sequence[MetaComercial]:
+        return [m for m in self.datos
+                if (sector_id is None or m.sector_id == sector_id)
+                and (lider_id is None or m.lider_id == lider_id)]
+
+    def vigente(self, lider_id: UUID, mes: date) -> MetaComercial | None:
+        """Meta comercial vigente para el líder en el mes (no afecta anteriores y rige como default hacia el futuro)."""
+        candidatos = [m for m in self.datos if m.lider_id == lider_id and m.mes <= mes]
+        return max(candidatos, key=lambda m: (m.mes, m.creado_en)) if candidatos else None
+
+    def guardar(self, meta: MetaComercial) -> None:
+        if meta.lider_id:
+            # No afecta metas anteriores (mes < meta.mes) y fija la nueva como default para meses posteriores (mes >= meta.mes)
+            self.datos = [m for m in self.datos if not (m.lider_id == meta.lider_id and m.mes >= meta.mes)]
+            self.datos.append(meta)
+        else:
+            existente = next((m for m in self.datos if m.id == meta.id or (m.sector_id == meta.sector_id and m.mes == meta.mes)), None)
+            if existente:
+                existente.monto_clp = meta.monto_clp
+                existente.actualizado_en = meta.actualizado_en
+                existente.usuario_id = meta.usuario_id
+            else:
+                self.datos.append(meta)
 
 
 @dataclass
@@ -244,14 +278,41 @@ class Almacen:
         hash_demo = hash_password(clave)
         for usuario in datos.usuarios:
             usuario.password_hash = hash_demo
-        for meta in datos.metas:  # la semilla dimensiona las metas para 1.000 registros; la demo usa menos
-            meta.monto_clp = meta.monto_clp * cantidad // 300
+        for meta in datos.metas:  # asegurar que la meta supere al backlog contractual
+            meta.monto_clp = max(meta.monto_clp, 120_000_000)
+        eventos_auditoria = [
+            EventoAuditoria(
+                entidad=EntidadAuditoria.REGISTRO,
+                entidad_id=r.id,
+                registro_id=r.id,
+                campo="creacion",
+                valor_anterior=None,
+                valor_nuevo={
+                    "codigo": r.codigo,
+                    "tipo": r.tipo.value,
+                    "estado": r.estado.value,
+                    "flujo": r.flujo.value,
+                    "probabilidad_bp": r.probabilidad_bp,
+                    "confiabilidad_bp": r.confiabilidad_bp,
+                    "perfiles": sum(1 for p in datos.perfiles if p.registro_id == r.id),
+                },
+                usuario_id=r.creado_por or r.owner_id,
+                fecha_hora=r.creado_en,
+                fecha_efectiva=r.fecha_creacion,
+                motivo="Creación inicial del registro",
+                mab_antes=0,
+                forecast_antes=0,
+            )
+            for r in datos.registros
+        ]
         return cls(
             registros=Registros({r.id: r for r in datos.registros}),
             perfiles=Perfiles(datos.perfiles, datos.tarifas, datos.ajustes),
             contratos=Contratos({c.registro_id: c for c in datos.contratos}),
             parametros=Parametros(datos.parametros),
             vigencias=Vigencias(datos.vigencias),
+            bitacora=SoloInsercion(),
+            auditoria=SoloInsercion(eventos_auditoria),
             usuarios=Usuarios({u.id: u for u in datos.usuarios}),
             catalogos=Catalogos(datos.catalogos),
             metas=Metas(datos.metas),

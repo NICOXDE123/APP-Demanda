@@ -1,0 +1,11 @@
+{% macro atributos(datos, nombre) -%}
+id="{{ datos._prefijo }}{{ nombre }}"{% if nombre in datos._errores %} aria-invalid="true" aria-describedby="{{ datos._prefijo }}{{ nombre }}-error"{% endif %}
+{%- endmacro %}
+
+{% macro error(datos, nombre) -%}
+{% if nombre in datos._errores %}<span class="d-block text-danger small" id="{{ datos._prefijo }}{{ nombre }}-error">{{ datos._errores[nombre] }}</span>{% endif %}
+{%- endmacro %}
+
+{% macro resumen(datos) -%}
+{% if datos._errores %}<ul class="small mb-2">{% for nombre, mensaje in datos._errores.items() %}<li><a href="#{{ datos._prefijo }}{{ nombre }}">{{ mensaje }}</a></li>{% endfor %}</ul>{% endif %}
+{%- endmacro %}

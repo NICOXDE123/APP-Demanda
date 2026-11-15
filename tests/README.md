@@ -28,6 +28,21 @@ pytest tests/contract -q
 pytest tests/e2e -q
 ```
 
+La verificación de escritorio abre Chrome o Edge en modo headless y usa el almacén sintético local:
+
+```powershell
+.venv\Scripts\python.exe -m uvicorn proyecta.main:app --host 127.0.0.1 --port 8000
+# En otra terminal:
+node tests/e2e/verificar_frontend.cjs
+```
+
+Requiere Node 22+ y Chrome/Edge instalado, sin paquetes npm adicionales. `PROYECTA_URL`,
+`PROYECTA_BROWSER` y `PROYECTA_DEMO_PASSWORD` permiten cambiar URL, navegador y clave local.
+Usar únicamente una instancia de prueba con datos sintéticos: la comprobación envía un alta
+inválida para revisar la conservación del borrador. Las capturas se guardan en un directorio temporal
+cuya ruta imprime el script. Comprueba tema y persistencia, contraste, navegación, teclado del gráfico,
+errores y recuperación de la vista previa al perder conexión; no cubre el diseño móvil.
+
 ## Responsables
 
 - **Roberto Villouta** — estrategia de QA, seguridad, cobertura y evidencias.

@@ -206,7 +206,7 @@ def test_el_fixture_no_contiene_datos_reales() -> None:
         if catalogo.tipo is TipoCatalogo.CLIENTE
     ]
     assert clientes
-    assert all(cliente.etiqueta.startswith("Cliente Sintético") for cliente in clientes)
+    assert all(cliente.etiqueta.startswith("Cliente") for cliente in clientes)
 
 
 def test_serializar_fixture_expone_las_inconsistencias_esperadas() -> None:

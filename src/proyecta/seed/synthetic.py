@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Iterator
 from uuid import NAMESPACE_DNS, UUID, uuid5
@@ -44,7 +44,7 @@ from proyecta.domain.enums import (
 )
 from proyecta.domain.value_objects import Period
 
-CLIENTES = tuple(f"Cliente Sintético {indice:02d}" for indice in range(1, 13))
+CLIENTES = tuple(f"Cliente {indice:02d}" for indice in range(1, 13))
 SECTORES = (
     "Banca",
     "Seguros",
@@ -165,22 +165,23 @@ def _usuarios() -> list[Usuario]:
     usuarios = [
         Usuario(
             id=_id("usuario", 0),
-            nombre="Operaciones Sintéticas",
+            nombre="Operaciones",
             email="operaciones@example.test",
             rol=Rol.OPERACIONES,
         ),
         Usuario(
             id=_id("usuario", 1),
-            nombre="Ejecutivo Sintético",
+            nombre="Ejecutivo",
             email="ejecutivo@example.test",
             rol=Rol.EJECUTIVO,
+            lider_id=_id("usuario", 11),  # reporta a Líder 1
         ),
     ]
     for indice in range(1, 4):
         usuarios.append(
             Usuario(
                 id=_id("usuario", 10 + indice),
-                nombre=f"Líder Sintético {indice}",
+                nombre=f"Líder {indice}",
                 email=f"lider{indice}@example.test",
                 rol=Rol.LIDER,
                 sectores=[SECTORES[indice % len(SECTORES)]],
@@ -217,7 +218,7 @@ def _catalogos() -> list[Catalogo]:
                 id=_id("catalogo", "manager", indice),
                 tipo=TipoCatalogo.MANAGER,
                 codigo=f"MGR_{indice:02d}",
-                etiqueta=f"Manager Sintético {indice}",
+                etiqueta=f"Manager {indice}",
                 orden=indice,
             )
         )
@@ -341,13 +342,26 @@ def generar_semilla(
         cliente = rng.choice(clientes)
         manager = rng.choice(managers)
         lider = rng.choice(lideres)
-        creado = date(primer_mes.anio, primer_mes.mes, 1)
+        meses_inicio = 0
+        if tipo is Tipo.CONTINUIDAD:
+            meses_inicio = rng.choice([3, 4, 6, 8, 12])
+        elif estado in (Estado.EN_CURSO, Estado.ADJUDICADA):
+            meses_inicio = rng.choice([0, 1, 2, 3, 4, 6])
+        elif rng.random() < 0.3:
+            meses_inicio = rng.choice([1, 2, 3])
+
+        p_inicio = primer_mes.retroceder(meses_inicio) if meses_inicio > 0 else primer_mes
+        creado = date(p_inicio.anio, p_inicio.mes, 1)
         ingreso = date(
-            primer_mes.anio,
-            primer_mes.mes,
+            p_inicio.anio,
+            p_inicio.mes,
             1 + rng.randrange(0, 20),
         )
         confiabilidad = 10_000 if tipo is Tipo.CONTINUIDAD else 9_000
+        creado_dt = datetime(creado.year, creado.month, creado.day, 9, 0, 0, tzinfo=timezone.utc)
+        # Variar actualizado_en para que existan modificaciones recientes
+        dias_despues = rng.randint(0, 30)
+        actualizado_dt = creado_dt + timedelta(days=dias_despues, hours=rng.randint(1, 8))
         registro = Registro(
             id=_id("registro", indice),
             codigo=f"OPD-{indice + 1:04d}",
@@ -375,7 +389,9 @@ def generar_semilla(
             en_staffing=estado is Estado.EN_CURSO,
             en_invoicing=tipo is Tipo.CONTINUIDAD,
             creado_por=lider.id,
+            creado_en=creado_dt,
             actualizado_por=lider.id,
+            actualizado_en=actualizado_dt,
         )
         datos.registros.append(registro)
 
@@ -427,7 +443,7 @@ def generar_semilla(
                     campo=CampoVigencia.CONFIABILIDAD,
                     valor_bp=8_000,
                     vigente_desde=Period(primer_mes.anio, min(12, primer_mes.mes + 3)).inicio,
-                    motivo="Ajuste sintético de confiabilidad",
+                    motivo="Ajuste de confiabilidad",
                     usuario_id=_id("usuario", 0),
                 )
             )
@@ -439,19 +455,23 @@ def generar_semilla(
                     mes=primer_mes.inicio,
                     tipo=TipoAjuste.ALTA,
                     cantidad=1,
-                    motivo="Ajuste sintético de dotación",
+                    motivo="Ajuste de dotación",
                     usuario_id=_id("usuario", 0),
                 )
             )
 
-    for mes in Period.serie(primer_mes, meses):
-        for sector in sectores:
+    lideres = [u for u in datos.usuarios if u.rol is Rol.LIDER]
+    # Generar metas para meses pasados y futuros con montos superiores al backlog contractual
+    inicio_metas = primer_mes.retroceder(12)
+    for mes in Period.serie(inicio_metas, meses + 36):
+        for lider in lideres:
             datos.metas.append(
                 MetaComercial(
-                    id=_id("meta", sector.id, mes),
-                    sector_id=sector.id,
+                    id=_id("meta", lider.id, mes),
+                    lider_id=lider.id,
+                    sector_id=None,
                     mes=mes.inicio,
-                    monto_clp=rng.randrange(80, 220) * 1_000_000,
+                    monto_clp=rng.randrange(180, 320) * 1_000_000,
                     usuario_id=_id("usuario", 0),
                 )
             )

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -36,6 +36,7 @@ class Filtros:
     confirmado: bool = False  # vista de Backlog confirmado (FR-032)
     periodo: Period = field(default_factory=lambda: Period.desde_fecha(date.today()))
     meses: int = 12
+    vista: str = "default"
 
     def a_query(self, **cambios: Any) -> str:
         valores = {
@@ -43,6 +44,7 @@ class Filtros:
             "owner": self.owner_id, "tipo": self.tipo, "estado": self.estado, "flujo": self.flujo,
             "modalidad": self.modalidad, "activos": "1" if self.solo_activos else "",
             "confirmado": "1" if self.confirmado else "", "desde": str(self.periodo), "meses": self.meses,
+            "vista": self.vista,
         }
         valores.update(cambios)
         from urllib.parse import urlencode
@@ -51,11 +53,14 @@ class Filtros:
 
 
 def visibles(almacen: Almacen, usuario: Usuario, f: Filtros) -> list[Registro]:
-    """Registros que el usuario puede ver (el líder, solo los suyos) y que cumplen los filtros (FR-006, FR-048)."""
+    """Registros que el usuario puede ver y que cumplen los filtros (FR-006, FR-048).
+    El líder ve solo sus iniciativas; el ejecutivo ve solo las de su líder asignado.
+    """
     texto = f.texto.lower()
     filas = []
+    lider_permitido = usuario.id if usuario.rol is Rol.LIDER else (usuario.lider_id if usuario.rol is Rol.EJECUTIVO else None)
     for r in almacen.registros.listar():
-        if usuario.rol is Rol.LIDER and r.owner_id != usuario.id:
+        if lider_permitido is not None and r.owner_id != lider_permitido:
             continue
         if texto and texto not in f"{r.codigo} {r.servicio_proyecto} {almacen.catalogos.etiqueta(r.cliente_id)}".lower():
             continue
@@ -90,14 +95,37 @@ def tablero(almacen: Almacen, calculo: CalcularProyeccion, usuario: Usuario, f: 
             fila["confirmado"] += d.mab_clp
             confirmado_mes[d.mes] += d.mab_clp
     filas = [(r, por_registro[r.id]) for r in registros]
+    filas.sort(
+        key=lambda rc: (
+            getattr(rc[0], "actualizado_en", None) or getattr(rc[0], "creado_en", None) or datetime.min,
+            getattr(rc[0], "fecha_creacion", None) or date.min,
+        ),
+        reverse=True,
+    )
     if f.confirmado:
         filas = [(r, c) for r, c in filas if c["confirmado"]]
 
     meses = list(resultado.meses)
-    sectores_visibles = {r.sector_id for r in registros} if (f.sector_id or usuario.rol is Rol.LIDER) else None
-    meta_mes = {m.mes: sum(x.monto_clp for x in almacen.metas.listar()
-                           if x.mes == m.mes.inicio and (sectores_visibles is None or x.sector_id in sectores_visibles))
-                for m in meses}
+    if usuario.rol is Rol.LIDER:
+        lideres_visibles = {usuario.id}
+    elif usuario.rol is Rol.EJECUTIVO and usuario.lider_id:
+        lideres_visibles = {usuario.lider_id}
+    elif f.owner_id:
+        lideres_visibles = {f.owner_id}
+    else:
+        lideres_visibles = None
+
+    todos_los_lideres = [u.id for u in almacen.usuarios.listar() if u.rol is Rol.LIDER]
+    lideres_consulta = list(lideres_visibles) if lideres_visibles is not None else todos_los_lideres
+
+    def meta_de(lider_id: UUID, mes_inicio: date) -> int:
+        m = almacen.metas.vigente(lider_id, mes_inicio)
+        return m.monto_clp if m else 0
+
+    meta_mes = {
+        m.mes: sum(meta_de(u, m.mes.inicio) for u in lideres_consulta)
+        for m in meses
+    }
     total = resultado.totales
     meta = sum(meta_mes.values())
     base_mab = sum(c["base"] for _, c in filas)
@@ -140,7 +168,7 @@ def tablero(almacen: Almacen, calculo: CalcularProyeccion, usuario: Usuario, f: 
         "kpi": {
             "forecast": total.forecast_clp, "mab": total.mab_clp, "backlog": total.backlog_clp,
             "confirmado": sum(confirmado_mes.values()), "potencial": total.ingreso_potencial_clp,
-            "meta": meta, "gap": meta - total.forecast_clp,
+            "meta": meta, "gap": total.forecast_clp - meta,
             "cobertura_bp": round(total.forecast_clp * 10_000 / meta) if meta > 0 else None,
             "hc_inicio": meses[0].hc if meses else 0, "hc_fin": meses[-1].hc if meses else 0,
             "oportunidades": sum(1 for r in registros if r.tipo is Tipo.OPORTUNIDAD and r.estado is Estado.PENDIENTE),
@@ -156,6 +184,8 @@ def tablero(almacen: Almacen, calculo: CalcularProyeccion, usuario: Usuario, f: 
                                if any(x.mes == m.mes.inicio for m in meses))
                         for s in {r.sector_id for r in registros}},
         "por_owner": agrupar(lambda r: r.owner_id),
+        "meta_owner": {u: sum(meta_de(u, m.mes.inicio) for m in meses)
+                       for u in {r.owner_id for r in registros}},
         "por_cliente": agrupar(lambda r: r.cliente_id)[:10],
         "por_estado": agrupar(lambda r: r.estado.value),
         "por_flujo": agrupar(lambda r: r.flujo.value),

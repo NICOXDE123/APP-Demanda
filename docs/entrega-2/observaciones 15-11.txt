@@ -1,0 +1,61 @@
+*Perfil Operaciones
+**Dashboard
+- Las metas deberian ser por lider, no por sector, ya que un sector tiene distintoss lideres, y las metas son comerciales, probablemente como incentivo por departamento.
+-En los hc, el porcentaje de dedicacion es una variable que hay que eliminar,solo está para complicar calculos, no tiene relevancia real en el trabajo actual.
+-ingresos potenciales tambien es un dato irrelevante, se supone que por algo está el forecast o proyección.
+- Probabilidad y confiabilidad media tampoco son un dato relevante para el dashboard.
+- Los filtros visibles todo el tiempo no son amigables, necesito que se muestren solamente cuando hagan click en el boton filtrar y que los registros se actualicen automaticamente al desplegar algun filtro sin necesidad de hacer click en aplicar en cada ocasion 
+**Registros
+- filtros con el mismo problema que en el dashboard
+- Se muestran muchos registros a la vez, agrear paginacion para que no se vea tan saturado.
+*** nuevo registro
+****checklist excel
+-creacion ✓
+-manager ✓
+-sector ✓
+-cliente ✓
+-servicio/proyecto ✓
+-Tecnología backend
+-tecnología frontend
+-studio
+-cuenta
+-id mana
+-tipo (oportunidad/demanda) ✓
+-probabilidad
+-estado
+-fecha adjudicacion
+-flujo
+-owner ✓
+-modalidad
+-descripcion/bitacora (Observaciones) ✓
+-en staffing
+-invoicing
+-tarifa media ✓
+-headcount ✓
+	-altas
+	-bajas
+	-cierre
+- La modificación de un registro incluye los dato que no se encuentran en el checklist, por lo tanto es necesario incluirlos en la creacion de uno nuevo.
+**Parámetros MAB
+- Añadir seccion para modificar las metas por lider
+**Auditoría 
+- Debe incluir como datos la creacion de nuevos registros, incluidos los sinteticos (en la auditoria actual esta en blanco aunque hay datos agregads), si no hay paginacion, agregarla.
+
+*Perfil Lider
+**Dashboard
+-mismas observaciones
+**Registros
+-mismas observaciones
+**parametros mab
+-mismas observaciones (un lider deberia ser capaz de modificar solo su meta dejando registro para la auditoria) 
+**auditoria
+- Mismas observaciones
+
+*Perfil Ejecutivo 
+**parametros mab
+- eliminar de su vista
+**Auditoria 
+- eliminar de su vista 
+
+* Observaciones globales
+- la palabra sintetico/a está muy arraigada dentro del proyecto, es redundante y se ve raro como usuario leerlo a cada rato, sabemos que los datos son sinteticos, no es necesario reitararlo en cada ocasion.

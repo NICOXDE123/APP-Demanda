@@ -159,7 +159,7 @@ def test_semilla_es_determinista_y_sin_datos_reales() -> None:
     assert len(list(primera.entradas())) == 24
 
     clientes = [c.etiqueta for c in primera.catalogos if c.tipo.value == "CLIENTE"]
-    assert clientes and all(nombre.startswith("Cliente Sintético") for nombre in clientes)
+    assert clientes and all(nombre.startswith("Cliente") for nombre in clientes)
     assert all(usuario.email.endswith("@example.test") for usuario in primera.usuarios)
     assert all(
         "NTT" not in (registro.servicio_proyecto or "") for registro in primera.registros
