@@ -62,6 +62,7 @@ async function main() {
     const go = async (route) => {
       await call('Page.navigate', { url: base + route });
       await until(`document.readyState === 'complete' && location.href === ${JSON.stringify(base + route)}`);
+      await ev("document.documentElement.style.scrollBehavior='auto'");
     };
     const key = async (key, code, n, text) => {
       await call('Input.dispatchKeyEvent', { type: 'keyDown', key, code, windowsVirtualKeyCode: n,
@@ -86,14 +87,19 @@ async function main() {
       const colors = await ev(`(()=>{const root=getComputedStyle(document.documentElement),card=getComputedStyle(document.querySelector('.card')),control=getComputedStyle(document.querySelector('.form-control'));
         return {theme:document.documentElement.dataset.bsTheme,secondary:getComputedStyle(document.querySelector('.text-secondary')).color,body:getComputedStyle(document.body).backgroundColor,
           nav:getComputedStyle(document.querySelector('.nav-link')).color,navBg:getComputedStyle(document.querySelector('nav')).backgroundColor,
-          border:control.borderColor,controlBg:control.backgroundColor,mab:root.getPropertyValue('--grafico-mab').trim(),card:card.backgroundColor}})()`);
+          border:control.borderColor,controlBg:control.backgroundColor,mab:root.getPropertyValue('--grafico-mab').trim(),mabBorde:root.getPropertyValue('--grafico-trama').trim(),card:card.backgroundColor}})()`);
       const ratios = { secondary: contrast(colors.secondary, colors.body), nav: contrast(colors.nav, colors.navBg),
-        border: contrast(colors.border, colors.controlBg), mab: contrast(colors.mab, colors.card) };
+        border: contrast(colors.border, colors.controlBg), mab: Math.max(contrast(colors.mab, colors.card), contrast(colors.mabBorde, colors.card)) };
       assert.ok(ratios.secondary >= 4.5, JSON.stringify(colors)); assert.ok(ratios.nav >= 4.5);
       assert.ok(ratios.border >= 3); assert.ok(ratios.mab >= 3);
-      const barra = await ev("({actual:Chart.getChart(document.querySelector('canvas')).getDatasetMeta(0).data[0].options.backgroundColor,esperado:getComputedStyle(document.documentElement).getPropertyValue('--grafico-backlog').trim(),dataset:Chart.getChart(document.querySelector('canvas')).data.datasets[0].backgroundColor})");
-      assert.equal(barra.actual, barra.esperado, 'La barra usa el color del tema: ' + JSON.stringify(barra));
+      assert.ok(await ev("Chart.getChart(document.querySelector('canvas')).getDatasetMeta(0).data[0].options.backgroundColor instanceof CanvasGradient"), 'Backlog usa un gradiente');
       assert.ok(await ev("Chart.getChart(document.querySelector('canvas')).getDatasetMeta(1).data[0].options.backgroundColor instanceof CanvasPattern"), 'La MAB se representa con trama');
+      assert.ok(await ev("Chart.getChart(document.querySelector('canvas')).data.datasets[2].pointBorderColor === getComputedStyle(document.documentElement).getPropertyValue('--grafico-punto-borde').trim()"), 'Los puntos de meta usan el tema actual');
+      assert.notEqual(colors.body, colors.card, 'Las tarjetas se separan del fondo en ambos temas');
+      const kpi = await ev(`(()=>{const el=document.querySelector('.kpi .valor'),s=getComputedStyle(el); return {size:parseFloat(s.fontSize),fits:el.scrollWidth<=el.clientWidth}})()`);
+      assert.ok(kpi.size >= 24 && kpi.fits, 'Las cifras son protagonistas y caben en la tarjeta');
+      const tab = await ev("(()=>{const s=getComputedStyle(document.querySelector('.nav-tabs .active')); return {text:s.color,bg:s.backgroundColor}})()");
+      assert.ok(contrast(tab.text, tab.bg) >= 4.5, `Contraste de la pestaña activa: ${JSON.stringify(tab)}`);
       console.log(`Contraste ${colors.theme}: ${JSON.stringify(ratios)}`);
     };
     await call('Page.enable'); await call('Runtime.enable'); await call('Network.enable');
@@ -118,8 +124,25 @@ async function main() {
     assert.equal(await ev("Chart.getChart(document.querySelector('canvas')).isDatasetVisible(1)"), false, 'Cambiar tema conserva la selección de series');
     await key(' ', 'Space', 32, ' ');
     await checkContrast();
-    assert.equal(await ev("Chart.getChart(document.querySelector('canvas')).options.scales.y.ticks.color"), '#dee2e6');
+    assert.ok(await ev("Chart.getChart(document.querySelector('canvas')).options.scales.y.ticks.color === getComputedStyle(document.documentElement).getPropertyValue('--bs-body-color').trim()"));
     await shot('dashboard-oscuro');
+    await ev("document.querySelector('#grafico').scrollIntoView({block:'center'})");
+    await shot('grafico-oscuro');
+    await changeTheme('light');
+    await ev("document.querySelector('#grafico').scrollIntoView({block:'center'})");
+    await shot('grafico-claro');
+    await ev('scrollTo(0, 0)');
+    for (const width of [1280, 1366, 1920]) {
+      await call('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false });
+      for (const theme of ['light', 'dark']) {
+        await changeTheme(theme);
+        await checkContrast();
+        assert.ok(await ev('document.documentElement.scrollWidth <= innerWidth'), `Sin desborde a ${width}px`);
+        assert.ok(await ev("[...document.querySelectorAll('.kpi .valor')].every(el => el.scrollWidth <= el.clientWidth)"), 'Todas las cifras caben');
+        await shot(`dashboard-${theme}-${width}`);
+      }
+    }
+    await call('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
     await go('/parametros');
     assert.equal(await ev('document.documentElement.dataset.bsTheme'), 'dark', 'Preferencia persistida');
     await changeTheme('sistema');
@@ -131,6 +154,17 @@ async function main() {
     assert.equal(await ev("document.querySelector('.nav-link[aria-current=location]').textContent"), 'Registros');
     assert.equal(await ev("document.querySelector('[aria-label=\"Migas de pan\"] a').getAttribute('href')"), '/registros?q=software&meses=3');
     await go('/registros?activos=1');
+    for (const theme of ['light', 'dark']) {
+      await changeTheme(theme);
+      const badges = await ev("[...document.querySelectorAll('.estado-badge')].map(el=>({color:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor,text:el.textContent}))");
+      assert.ok(badges.length > 0, 'Los registros muestran estados con texto');
+      for (const badge of badges) assert.ok(contrast(badge.color, badge.bg) >= 4.5, `Contraste del estado ${badge.text} en ${theme}`);
+      await shot(`registros-${theme}`);
+      await go('/auditoria');
+      await shot(`auditoria-${theme}`);
+      await go('/registros?activos=1');
+    }
+    await changeTheme('light');
     await ev("document.querySelector('[data-dialog-open]').focus()"); await key('Enter', 'Enter', 13, '\r');
     await until("document.querySelector('dialog').open && document.querySelector('#estado-previa').textContent.includes('actualizada')");
     const before = await ev("document.querySelector('#vista-previa').textContent");
@@ -156,6 +190,90 @@ async function main() {
     await changeTheme('dark');
     await ev("document.querySelector('[data-dialog-open]').click()");
     await shot('alta-error-oscuro');
+    // Entrega 3: distribución, sincronización del HC y controles maestro-detalle.
+    await call('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+    await go('/');
+    await ev("document.querySelector('#tab-financiero-btn').click()");
+    await until("!!Chart.getChart(document.querySelector('#grafico-hc'))");
+    await ev("document.querySelector('#vista-grafico').value='default'; document.querySelector('#vista-grafico').dispatchEvent(new Event('change'))");
+    for (const theme of ['light', 'dark']) {
+      await changeTheme(theme);
+      const franjas = await ev(`(() => {
+        const chart=Chart.getChart(document.querySelector('#grafico'));
+        const opciones=chart.options.plugins.periodosTemporales;
+        const estilo=getComputedStyle(document.documentElement);
+        const auxiliar=document.createElement('canvas').getContext('2d');
+        return ['anterior','actual','posterior'].map(tipo=>{
+          const i=opciones.periodos.findIndex(p=>tipo==='anterior'?p<opciones.actual:tipo==='actual'?p===opciones.actual:p>opciones.actual);
+          if(i<0) return {tipo,indice:i};
+          auxiliar.fillStyle=estilo.getPropertyValue('--periodo-'+tipo+'-fondo').trim();
+          auxiliar.fillRect(0,0,1,1);
+          const ratio=chart.currentDevicePixelRatio;
+          return {tipo,indice:i,esperado:[...auxiliar.getImageData(0,0,1,1).data],
+            real:[...chart.ctx.getImageData(Math.round(chart.scales.x.getPixelForValue(i)*ratio),Math.round((chart.chartArea.top+10)*ratio),1,1).data]};
+        });
+      })()`);
+      assert.ok(franjas.every(f=>f.indice>=0), 'La vista mixta incluye meses anteriores, actual y posteriores');
+      for (const franja of franjas) assert.deepEqual(franja.real, franja.esperado, `Fondo ${franja.tipo} en ${theme}`);
+      assert.equal(new Set(franjas.map(f=>JSON.stringify(f.real))).size, 3, 'Tres colores temporales distintos');
+      await ev("document.querySelector('.finanzas-grid').scrollIntoView({block:'start'})");
+      await shot(`grafico-periodos-${theme}`);
+    }
+    await ev("document.querySelector('#vista-grafico').value='ultimos_12m'; document.querySelector('#vista-grafico').dispatchEvent(new Event('change'))");
+    assert.ok(await ev("(()=>{const o=Chart.getChart(document.querySelector('#grafico')).options.plugins.periodosTemporales;return o.periodos.length===12&&o.periodos.every(p=>p<o.actual)})()"), 'Los doce meses anteriores se clasifican como anteriores, incluso al cambiar de año');
+    await ev("document.querySelector('#vista-grafico').value='futuro_3m'; document.querySelector('#vista-grafico').dispatchEvent(new Event('change'))");
+    assert.ok(await ev("(()=>{const o=Chart.getChart(document.querySelector('#grafico')).options.plugins.periodosTemporales;return o.periodos[0]===o.actual&&o.periodos.slice(1).every(p=>p>o.actual)})()"), 'El horizonte futuro conserva el mes actual y distingue los siguientes');
+    assert.deepEqual(await ev("Chart.getChart(document.querySelector('#grafico-hc')).data.datasets[0].data"),
+      await ev("[...document.querySelectorAll('#cuerpo-serie-mensual tr')].map(fila=>Number(fila.cells[5].textContent))"), 'Dotación sincronizada con el horizonte de la tabla');
+    for (const theme of ['light', 'dark']) {
+      await changeTheme(theme);
+      assert.equal(await ev("Chart.getChart(document.querySelector('#grafico-hc')).data.labels.length"), 3);
+      await ev("document.querySelector('.finanzas-grid').scrollIntoView({block:'start'})");
+      await shot(`entrega3-financiero-${theme}`);
+      await ev("document.querySelector('#tab-operativo-btn').click()");
+      assert.ok(await ev("document.querySelector('#alertas-operativas').getBoundingClientRect().top < document.querySelector('#lideres').getBoundingClientRect().top"), 'Alertas antes del cumplimiento por líder');
+      await ev("document.querySelector('#alertas-operativas').scrollIntoView({block:'start'})");
+      await shot(`entrega3-operativo-${theme}`);
+      await ev("document.querySelector('#tab-financiero-btn').click()");
+    }
+    await go('/parametros');
+    await ev("document.querySelector('#historial-parametros-btn').focus()");
+    await key('End', 'End', 35);
+    assert.equal(await ev("document.querySelector('#historial-metas').hidden"), false);
+    assert.equal(await ev("document.querySelector('#historial-parametros').hidden"), true);
+    await key('Home', 'Home', 36);
+    assert.equal(await ev("document.querySelector('#historial-parametros').hidden"), false);
+    const primero = await ev("document.querySelector('[data-meta-lider]').selectedIndex");
+    await ev("const lider=document.querySelector('[data-meta-lider]'); lider.selectedIndex=(lider.selectedIndex+1)%lider.options.length; lider.dispatchEvent(new Event('change'))");
+    assert.ok(await ev("document.querySelector('[data-meta-nombre]').textContent === document.querySelector('[data-meta-lider]').selectedOptions[0].textContent"));
+    assert.notEqual(await ev("document.querySelector('[data-meta-lider]').selectedIndex"), primero);
+    for (const theme of ['light', 'dark']) {
+      await changeTheme(theme);
+      await ev("document.querySelector('.parametros-grid').scrollIntoView({block:'start'})");
+      await shot(`entrega3-parametros-${theme}`);
+    }
+    await go('/auditoria');
+    const primerDetalle = await ev("document.querySelector('[data-audit-panel]:not([hidden])').id");
+    await ev("document.querySelectorAll('[data-audit-select]')[1].focus()");
+    await key('Enter', 'Enter', 13, '\r');
+    assert.notEqual(await ev("document.querySelector('[data-audit-panel]:not([hidden])').id"), primerDetalle);
+    assert.equal(await ev("document.querySelectorAll('[data-audit-panel]:not([hidden])').length"), 1);
+    assert.equal(await ev("document.querySelectorAll('[data-audit-select][aria-expanded=true]').length"), 1);
+    await ev("document.querySelectorAll('.audit-row')[2].cells[0].click()");
+    assert.ok(await ev("document.querySelectorAll('[data-audit-select]')[2].getAttribute('aria-expanded')==='true'"));
+    for (const theme of ['light', 'dark']) {
+      await changeTheme(theme);
+      await ev("document.querySelector('.auditoria-grid').scrollIntoView({block:'start'})");
+      await shot(`entrega3-auditoria-${theme}`);
+    }
+    await go('/auditoria?codigo=OPD-SIN-COINCIDENCIAS');
+    assert.ok(await ev("document.querySelector('main').textContent.includes('Sin eventos con estos filtros')"));
+    await call('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+    for (const route of ['/', '/auditoria', '/parametros']) {
+      await go(route);
+      assert.ok(await ev('document.documentElement.scrollWidth <= innerWidth'), `Sin desborde móvil: ${route}`);
+    }
+    await call('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
     await go('/?q=sin-coincidencias-auditoria');
     assert.ok(await ev("document.querySelector('[role=status]').textContent.includes('No hay registros')"));
     await go('/registros/no-es-uuid');
