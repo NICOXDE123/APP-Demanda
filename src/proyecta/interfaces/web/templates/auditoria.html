@@ -1,6 +1,9 @@
 {% extends 'base.html' %}
+{% from '_estados.html' import badge_estado %}
 {% block titulo %}Auditoría{% endblock %}
+{% block cabeza %}<link rel="stylesheet" href="/static/css/proyecta-theme.css"><script src="/static/js/proyecta-theme.js" defer></script>{% endblock %}
 {% block contenido %}
+<div class="datos-tema">
 <h1 class="h4">Auditoría</h1>
 <p class="small text-secondary">Cada cambio queda con usuario, fecha y hora, valor anterior y nuevo, motivo, fecha efectiva e impacto en la MAB y el Forecast de 12 meses.
   Los eventos no se editan ni se borran.{% if rol == 'LIDER' %} Ves solo los eventos de tus registros.{% endif %}</p>
@@ -15,19 +18,20 @@
     <div class="col-auto"><button class="btn btn-sm btn-primary">Filtrar</button> <a class="btn btn-sm btn-link" href="/auditoria">Limpiar filtros</a></div>
   </div>
 </form>
-<div class="card card-body">
-  <p class="small mb-2">{{ total }} evento(s){% if total > 500 %}; se muestran los 500 más recientes{% endif %}.</p>
-  <div class="tabla-scroll" role="region" tabindex="0" aria-label="Eventos de auditor?a"><table class="table table-sm small mb-0">
-    <thead><tr><th>Fecha</th><th>Usuario</th><th>Registro</th><th>Entidad</th><th>Campo</th><th>Antes</th><th>Después</th><th>Motivo</th>
-      <th class="num">MAB antes → después</th><th class="num">Forecast antes → después</th></tr></thead>
-    <tbody>{% for e in eventos %}<tr><td class="text-nowrap">{{ e.fecha_hora|local }}</td><td>{{ nombre_usuario(e.usuario_id) }}</td>
+<div class="auditoria-grid">
+<section class="card card-body">
+  <h2 class="h6 mb-3">Eventos registrados</h2>
+  <p class="small mb-2">{{ total }} evento(s).</p>
+  <div class="tabla-scroll" role="region" tabindex="0" aria-label="Eventos de auditoría"><table class="table table-sm small mb-0">
+    <thead><tr><th>Fecha y hora</th><th>Registro</th><th>Cambio</th><th>Usuario</th></tr></thead>
+    <tbody>{% for e in eventos %}<tr class="audit-row{% if loop.first %} is-selected{% endif %}">
+      <td>{{ e.fecha_hora|local }}</td>
       <td>{% if codigos.get(e.registro_id) %}<a href="/registros/{{ e.registro_id }}">{{ codigos[e.registro_id] }}</a>{% else %}—{% endif %}</td>
-      <td>{{ e.entidad|etiqueta }}</td><td>{{ e.campo }}</td>
-      <td>{{ e.valor_anterior|valor(e.campo) }}</td><td>{{ e.valor_nuevo|valor(e.campo) }}</td>
-      <td>{{ e.motivo or '—' }}</td>
-      <td class="num">{{ e.mab_antes|pesos }} → {{ e.mab_despues|pesos }}</td><td class="num">{{ e.forecast_antes|pesos }} → {{ e.forecast_despues|pesos }}</td></tr>
-    {% else %}<tr><td colspan="10" class="text-secondary">{% if total_sin_filtros %}Sin eventos con estos filtros. Prueba limpiar los filtros.{% else %}Todavía no hay eventos registrados para tu alcance. Los datos iniciales de la semilla no tienen historial; los nuevos cambios generan auditoría.{% endif %}</td></tr>{% endfor %}</tbody>
+      <td><button type="button" class="audit-select" data-audit-select aria-expanded="{{ 'true' if loop.first else 'false' }}" aria-controls="evento-detalle-{{ loop.index }}" aria-label="Ver {{ 'creación' if e.campo == 'creacion' else e.campo }} de {{ codigos.get(e.registro_id, e.entidad|etiqueta) }} · {{ e.fecha_hora|local }}">{{ 'Creación' if e.campo == 'creacion' else e.campo|replace('_', ' ')|capitalize }}</button></td>
+      <td>{{ nombre_usuario(e.usuario_id) }}</td></tr>
+    {% else %}<tr><td colspan="4" class="text-secondary">{% if total_sin_filtros %}Sin eventos con estos filtros. Prueba limpiar los filtros.{% else %}Todavía no hay eventos registrados para tu alcance. Los nuevos cambios generan auditoría.{% endif %}</td></tr>{% endfor %}</tbody>
   </table></div>
+  <p class="small text-secondary mt-3 mb-0">{% if total %}{{ (pagina - 1) * 25 + 1 }}–{{ [(pagina - 1) * 25 + eventos|length, total]|min }} de {{ total }} eventos{% else %}0 eventos{% endif %}</p>
   {% if total_paginas > 1 %}
   <nav aria-label="Paginación de auditoría" class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
     <span class="small text-secondary">Página {{ pagina }} de {{ total_paginas }} ({{ total }} eventos)</span>
@@ -50,5 +54,14 @@
     </ul>
   </nav>
   {% endif %}
+</section>
+<aside class="card card-body auditoria-detalle" aria-label="Detalle del evento seleccionado">
+  {% for e in eventos %}{% set evento_indice = loop.index %}{% set evento_primero = loop.first %}{% include '_auditoria_evento.html' %}{% else %}
+  <span class="evento-eyebrow">DETALLE DEL EVENTO</span>
+  <h2 class="h6">Sin eventos para mostrar</h2>
+  <p class="small text-secondary mb-0">Los eventos disponibles aparecerán aquí al consultar la auditoría.</p>
+  {% endfor %}
+</aside>
+</div>
 </div>
 {% endblock %}

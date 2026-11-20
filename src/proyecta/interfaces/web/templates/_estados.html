@@ -1,0 +1,5 @@
+{# Presentación compartida de estados: conserva siempre su etiqueta textual. #}
+{% macro badge_estado(codigo, texto) -%}
+  {% set tono = {'ADJUDICADA': 'exito', 'EN_CURSO': 'info', 'PENDIENTE': 'aviso', 'STANDBY': 'aviso', 'CANCELADA': 'error'}.get(codigo, 'neutro') %}
+  <span class="estado-badge estado-badge--{{ tono }}">{{ texto }}</span>
+{%- endmacro %}

@@ -42,6 +42,18 @@ Usar únicamente una instancia de prueba con datos sintéticos: la comprobación
 inválida para revisar la conservación del borrador. Las capturas se guardan en un directorio temporal
 cuya ruta imprime el script. Comprueba tema y persistencia, contraste, navegación, teclado del gráfico,
 errores y recuperación de la vista previa al perder conexión; no cubre el diseño móvil.
+También verifica la separación de superficies, cifras sin desbordes, gradientes y trama
+del gráfico y contraste de pestañas y estados. Captura ambos temas en 1280, 1366,
+1440 y 1920 px de ancho, además de las vistas de registros y auditoría.
+
+La comprobación de Entrega 3 añade selección de eventos con ratón y teclado,
+pestañas del historial, cambio de líder y sincronización del gráfico de dotación
+con la tabla mensual. Captura las tres vistas en claro y oscuro y comprueba
+que Dashboard, Auditoría y Parámetros no desborden a 390 px. La MAB de color
+menta conserva trama y contorno contrastados; se verifica el contraste del
+relleno o del contorno, además de la presencia de la trama.
+Las regresiones HTTP de estas vistas están en
+`tests/integration/test_entrega3_presentacion.py`.
 
 ## Responsables
 

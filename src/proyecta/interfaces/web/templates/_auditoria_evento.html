@@ -1,0 +1,34 @@
+{% from '_estados.html' import badge_estado %}
+{% set codigo = codigos.get(e.registro_id) %}
+{% set creacion = e.campo == 'creacion' and e.valor_nuevo is mapping %}
+<section id="evento-detalle-{{ evento_indice }}" data-audit-panel {% if not evento_primero %}hidden{% endif %}
+  aria-labelledby="evento-titulo-{{ evento_indice }}">
+  <span class="evento-eyebrow">DETALLE DEL EVENTO</span>
+  <h2 class="h6 evento-titulo" id="evento-titulo-{{ evento_indice }}">{{ 'Creación de ' if creacion else 'Cambio de ' ~ e.campo ~ ' · ' }}{{ codigo or (e.entidad|etiqueta) }}</h2>
+  <p class="small-help">{{ e.fecha_hora|local }} / {{ nombre_usuario(e.usuario_id) }}</p>
+  <dl class="evento-atributos">
+    <div><dt>Entidad</dt><dd>{{ e.entidad|etiqueta }}</dd></div>
+    <div><dt>Registro</dt><dd>{% if codigo %}<a href="/registros/{{ e.registro_id }}">{{ codigo }}</a>{% else %}—{% endif %}</dd></div>
+    <div><dt>Campo</dt><dd>{{ e.campo }}</dd></div>
+    {% if creacion %}
+    <div><dt>Tipo / estado</dt><dd>{{ e.valor_nuevo.get('tipo')|etiqueta }} · {{ e.valor_nuevo.get('estado')|etiqueta }}</dd></div>
+    <div><dt>Flujo</dt><dd>{{ e.valor_nuevo.get('flujo')|etiqueta }}</dd></div>
+    <div><dt>Probabilidad / confiabilidad</dt><dd>{{ e.valor_nuevo.get('probabilidad_bp')|pct }} / {{ e.valor_nuevo.get('confiabilidad_bp')|pct }}</dd></div>
+    <div><dt>Perfiles</dt><dd>{{ e.valor_nuevo.get('perfiles', '—') }}</dd></div>
+    {% endif %}
+    {% if not creacion %}
+    <div><dt>Valor anterior</dt><dd>{% if e.campo == 'estado' and e.valor_anterior %}{{ badge_estado(e.valor_anterior, e.valor_anterior|valor(e.campo)) }}{% else %}{{ e.valor_anterior|valor(e.campo) }}{% endif %}</dd></div>
+    <div><dt>Valor nuevo</dt><dd>{% if e.campo == 'estado' and e.valor_nuevo %}{{ badge_estado(e.valor_nuevo, e.valor_nuevo|valor(e.campo)) }}{% else %}{{ e.valor_nuevo|valor(e.campo) }}{% endif %}</dd></div>
+    {% endif %}
+    <div><dt>Fecha efectiva</dt><dd>{{ e.fecha_efectiva|fecha }}</dd></div>
+    <div><dt>Motivo</dt><dd>{{ e.motivo or '—' }}</dd></div>
+  </dl>
+  {% if creacion %}<details class="evento-valores"><summary>Valores completos del evento</summary>
+    <dl class="small mb-0"><dt>Valor anterior</dt><dd>{{ e.valor_anterior|valor(e.campo) }}</dd><dt>Valor nuevo</dt><dd>{{ e.valor_nuevo|valor(e.campo) }}</dd></dl>
+  </details>{% endif %}
+  <div class="evento-impacto"><h3 class="h6 mb-0">Impacto a 12 meses</h3><span class="small-help">Antes → después</span></div>
+  <dl class="evento-impacto-lista mb-0">
+    <div><dt>MAB</dt><dd>{{ e.mab_antes|pesos if e.mab_antes is not none else 'Sin dato' }} → {{ e.mab_despues|pesos if e.mab_despues is not none else 'Sin dato' }}</dd></div>
+    <div><dt>Forecast</dt><dd>{{ e.forecast_antes|pesos if e.forecast_antes is not none else 'Sin dato' }} → {{ e.forecast_despues|pesos if e.forecast_despues is not none else 'Sin dato' }}</dd></div>
+  </dl>
+</section>

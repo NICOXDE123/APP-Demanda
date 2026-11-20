@@ -169,20 +169,49 @@ document.addEventListener('DOMContentLoaded', () => {
     const d = JSON.parse(datos.textContent);
     const clp = (v) => '$' + Math.round(v).toLocaleString('es-CL');
     const colores = getComputedStyle(document.documentElement);
+    const tipoPeriodo = (periodo, actual) => periodo < actual ? 'anterior' : periodo === actual ? 'actual' : 'posterior';
+    const franjasTemporales = {
+      id: 'periodosTemporales',
+      beforeDraw(chart, _args, opciones) {
+        const area = chart.chartArea, eje = chart.scales.x;
+        if (!area || !opciones.periodos?.length) return;
+        const estilo = getComputedStyle(document.documentElement);
+        const { ctx } = chart;
+        ctx.save();
+        opciones.periodos.forEach((periodo, i) => {
+          const tipo = tipoPeriodo(periodo, opciones.actual);
+          const centro = eje.getPixelForValue(i);
+          const izquierda = i === 0 ? area.left : (eje.getPixelForValue(i - 1) + centro) / 2;
+          const derecha = i === opciones.periodos.length - 1 ? area.right : (centro + eje.getPixelForValue(i + 1)) / 2;
+          ctx.fillStyle = estilo.getPropertyValue(`--periodo-${tipo}-fondo`).trim();
+          ctx.fillRect(izquierda, area.top, derecha - izquierda, area.bottom - area.top);
+          ctx.fillStyle = estilo.getPropertyValue(`--periodo-${tipo}-acento`).trim();
+          ctx.fillRect(izquierda, area.top, derecha - izquierda, 4);
+          if (tipo === 'actual') {
+            ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
+            ctx.strokeRect(izquierda + .75, area.top + .75, derecha - izquierda - 1.5, area.bottom - area.top - 1.5);
+            ctx.setLineDash([]);
+          }
+        });
+        ctx.restore();
+      },
+    };
     const configuracion = {
+      plugins: [franjasTemporales],
       data: {
         labels: d.meses,
         datasets: [
-          { type: 'bar', label: 'Backlog contractual', data: d.backlog, backgroundColor: colores.getPropertyValue('--grafico-backlog').trim(), stack: 'f' },
-          { type: 'bar', label: 'MAB (trama)', data: d.mab, backgroundColor: colores.getPropertyValue('--grafico-mab').trim(), stack: 'f' },
-          { type: 'line', label: 'Meta (línea discontinua)', data: d.meta, borderColor: colores.getPropertyValue('--grafico-meta').trim(), pointRadius: 3, borderDash: [7, 4] },
+          { type: 'bar', label: 'Backlog contractual', data: d.backlog, stack: 'f', maxBarThickness: 64, borderRadius: 6, order: 2 },
+          { type: 'bar', label: 'MAB (trama)', data: d.mab, stack: 'f', maxBarThickness: 64, borderRadius: 6, order: 2 },
+          { type: 'line', label: 'Meta (línea discontinua)', data: d.meta, borderColor: colores.getPropertyValue('--grafico-meta').trim(), pointRadius: 3, pointHoverRadius: 6, pointBorderWidth: 2, borderWidth: 2.5, borderDash: [5, 5], order: 0 },
         ],
       },
       options: {
         maintainAspectRatio: false,
         animation: false,
+        interaction: { mode: 'index', intersect: false },
         scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Millones de CLP' }, ticks: { callback: (v) => (v / 1e6).toLocaleString('es-CL') } } },
-        plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${clp(c.parsed.y)}` } } },
+        plugins: { periodosTemporales: { actual: d.hoy, periodos: d.periodos }, legend: { display: false }, tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${clp(c.parsed.y)}` } } },
       },
     };
     let grafico;
@@ -192,22 +221,52 @@ document.addEventListener('DOMContentLoaded', () => {
       grafico?.destroy();
       const estilo = getComputedStyle(document.documentElement);
       const color = (nombre) => estilo.getPropertyValue(nombre).trim();
-      const texto = color('--bs-body-color'), fondo = color('--bs-body-bg');
-      configuracion.data.datasets[0].backgroundColor = color('--grafico-backlog');
-      const trama = document.createElement('canvas'); trama.width = trama.height = 8;
-      const ctx = trama.getContext('2d');
-      ctx.fillStyle = color('--grafico-mab'); ctx.fillRect(0, 0, 8, 8);
-      ctx.strokeStyle = texto; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, 8); ctx.lineTo(8, 0); ctx.stroke();
-      configuracion.data.datasets[1].backgroundColor = document.getElementById('grafico').getContext('2d').createPattern(trama, 'repeat');
-      configuracion.data.datasets[1].borderColor = texto; configuracion.data.datasets[1].borderWidth = 1;
+      const texto = color('--bs-body-color'), fondo = color('--superficie');
+      // Se resuelve después del layout y en cada resize: el gradiente cubre el área real.
+      configuracion.data.datasets[0].backgroundColor = ({ chart }) => {
+        const area = chart.chartArea;
+        if (!area) return color('--grafico-backlog');
+        const gradiente = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+        gradiente.addColorStop(0, color('--grafico-backlog'));
+        gradiente.addColorStop(1, color('--grafico-backlog-fin'));
+        return gradiente;
+      };
+      // La trama mantiene la distinción sin depender del color y recibe también profundidad.
+      let patronMab, alturaMab;
+      configuracion.data.datasets[1].backgroundColor = ({ chart }) => {
+        const alto = Math.max(1, Math.ceil(chart.chartArea?.height || chart.height));
+        if (patronMab && alturaMab === alto) return patronMab;
+        const trama = document.createElement('canvas'); trama.width = 12; trama.height = alto;
+        const ctx = trama.getContext('2d');
+        const gradiente = ctx.createLinearGradient(0, 0, 0, alto);
+        gradiente.addColorStop(0, color('--grafico-mab'));
+        gradiente.addColorStop(1, color('--grafico-mab-fin'));
+        ctx.fillStyle = gradiente; ctx.fillRect(0, 0, 12, alto);
+        ctx.strokeStyle = color('--grafico-trama'); ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let y = -12; y < alto; y += 12) { ctx.moveTo(0, y + 12); ctx.lineTo(12, y); }
+        ctx.stroke();
+        patronMab = chart.ctx.createPattern(trama, 'repeat'); alturaMab = alto;
+        return patronMab;
+      };
+      configuracion.data.datasets[1].borderColor = color('--grafico-trama'); configuracion.data.datasets[1].borderWidth = 1;
       configuracion.data.datasets[2].borderColor = color('--grafico-meta');
       configuracion.data.datasets[2].backgroundColor = color('--grafico-meta');
+      configuracion.data.datasets[2].pointBackgroundColor = color('--grafico-meta');
+      configuracion.data.datasets[2].pointBorderColor = color('--grafico-punto-borde');
       for (const eje of Object.values(configuracion.options.scales)) {
         eje.ticks ??= {}; eje.grid ??= {};
         eje.ticks.color = texto; eje.grid.color = color('--grafico-grilla');
         if (eje.title) eje.title.color = texto;
       }
-      Object.assign(configuracion.options.plugins.tooltip, { backgroundColor: fondo, titleColor: texto, bodyColor: texto, borderColor: texto, borderWidth: 1 });
+      configuracion.options.scales.x.ticks.font = (contexto) => ({
+        weight: configuracion.options.plugins.periodosTemporales.periodos[contexto.index] === d.hoy ? 'bold' : 'normal',
+      });
+      configuracion.options.scales.x.ticks.callback = (valor, indice) => {
+        const etiqueta = configuracion.data.labels[valor];
+        return configuracion.options.plugins.periodosTemporales.periodos[indice] === d.hoy ? [etiqueta, 'Mes actual'] : etiqueta;
+      };
+      Object.assign(configuracion.options.plugins.tooltip, { backgroundColor: fondo, titleColor: texto, bodyColor: texto, borderColor: color('--borde-superficie'), borderWidth: 1, padding: 12, cornerRadius: 8, boxPadding: 5 });
       grafico = new Chart(document.getElementById('grafico'), configuracion);
       visibles?.forEach((visible, i) => grafico.setDatasetVisibility(i, visible));
       grafico.update('none');
@@ -246,7 +305,12 @@ document.addEventListener('DOMContentLoaded', () => {
           configuracion.data.datasets[0].data = slice.map((m) => m.backlog);
           configuracion.data.datasets[1].data = slice.map((m) => m.mab);
           configuracion.data.datasets[2].data = slice.map((m) => m.meta);
+          configuracion.options.plugins.periodosTemporales.periodos = slice.map((m) => m.periodo);
           grafico.update();
+
+          document.dispatchEvent(new CustomEvent('proyecta:serie', {
+            detail: { meses: slice.map((m) => m.etiqueta), hc: slice.map((m) => m.hc) },
+          }));
 
           // 2. Actualizar tabla serie mensual
           const cuerpo = document.getElementById('cuerpo-serie-mensual');

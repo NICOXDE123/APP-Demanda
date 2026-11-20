@@ -1,7 +1,9 @@
 {% extends 'base.html' %}
 {% from '_formularios.html' import atributos, error as error_campo, resumen %}
 {% block titulo %}Parámetros de la MAB{% endblock %}
+{% block cabeza %}<link rel="stylesheet" href="/static/css/proyecta-theme.css"><script src="/static/js/proyecta-theme.js" defer></script>{% endblock %}
 {% block contenido %}
+<div class="datos-tema">
 <h1 class="h4">Mantenedor de parámetros de la MAB</h1>
 <p class="small text-secondary">MAB = Base × probabilidad × confiabilidad, con Base = Σ HC × tarifa × <strong>horas del
     mes</strong> × fracción activa.
@@ -13,111 +15,50 @@
   impacto en el Forecast.</div>{% endif %}
 {% if error %}<div class="alert alert-danger py-2 small" role="alert" tabindex="-1" data-error-summary><strong>No se
     guardó:</strong> {{ error }}{{ resumen(formulario(request.url.path)) }}</div>{% endif %}
-<div class="row g-3">
-  <div class="col-12 col-lg-5">
-    <div class="card card-body small mb-3">
-      <h2 class="h6">Horas mensuales · vigente hoy: {{ vigente.valor if vigente else 180 }} h</h2>
+<div class="parametros-grid"><section class="card card-body small"><h2 class="h6">Horas mensuales</h2><p class="parametro-valor">{{ vigente.valor if vigente else 180 }} h</p><p class="subtitulo-dato">Vigente desde {{ vigente.vigente_desde|mes if vigente else 'el mes actual' }}</p>
       {% if rol == 'OPERACIONES' %}
       {% set datos = formulario('/parametros/horas') %}
       <form method="post" action="/parametros/horas" class="row g-2">
         <input type="hidden" name="csrf_token" value="{{ csrf }}">
-        <div class="col-4"><label class="form-label mb-0 w-100">Horas<input class="form-control form-control-sm"
+        <div class="col-6"><label class="form-label mb-0 w-100">Horas<input class="form-control form-control-sm"
               type="number" name="horas" min="1" max="744" required value="{{ datos.get('horas', '') }}" {{
               atributos(datos, 'horas' ) }}>{{ error_campo(datos, 'horas') }}</label></div>
-        <div class="col-8"><label class="form-label mb-0 w-100">Rige desde el mes de<input
+        <div class="col-6"><label class="form-label mb-0 w-100">Rige desde el mes de<input
               class="form-control form-control-sm" type="date" name="desde" required
               value="{{ datos.get('desde', '') }}" {{ atributos(datos, 'desde' ) }}>{{ error_campo(datos, 'desde')
             }}</label></div>
         <div class="col-12"><label class="form-label mb-0 w-100">Motivo *<input class="form-control form-control-sm"
               name="motivo" maxlength="500" required value="{{ datos.get('motivo', '') }}" {{ atributos(datos, 'motivo'
               ) }}>{{ error_campo(datos, 'motivo') }}</label></div>
-        <div class="col-12"><button class="btn btn-sm btn-primary">Guardar</button></div>
+        <div class="col-12"><button class="btn btn-sm btn-primary">Guardar cambio</button></div>
       </form>
       {% else %}<p class="text-secondary mb-0">Solo Operaciones modifica los parámetros.</p>{% endif %}
-    </div>
-    <div class="card card-body small">
-      <h2 class="h6">Confiabilidad inicial · vigente hoy: {{ confiabilidad_vigente.valor if confiabilidad_vigente else
-        90 }} %</h2>
+</section><section class="card card-body small"><h2 class="h6">Confiabilidad inicial</h2><p class="parametro-valor">{{ confiabilidad_vigente.valor if confiabilidad_vigente else 90 }} %</p><p class="subtitulo-dato">Vigente desde {{ confiabilidad_vigente.vigente_desde|mes if confiabilidad_vigente else 'el mes actual' }}</p>
       {% if rol == 'OPERACIONES' %}
       {% set datos = formulario('/parametros/confiabilidad-inicial') %}
       <form method="post" action="/parametros/confiabilidad-inicial" class="row g-2">
         <input type="hidden" name="csrf_token" value="{{ csrf }}">
-        <div class="col-4"><label class="form-label mb-0 w-100">Confiabilidad (%)<input
+        <div class="col-6"><label class="form-label mb-0 w-100">Confiabilidad (%)<input
               class="form-control form-control-sm" type="number" name="valor" min="0" max="100" step="1" required
               value="{{ datos.get('valor', '') }}" {{ atributos(datos, 'valor' ) }}>{{ error_campo(datos, 'valor')
             }}</label></div>
-        <div class="col-8"><label class="form-label mb-0 w-100">Rige desde el mes de<input
+        <div class="col-6"><label class="form-label mb-0 w-100">Rige desde el mes de<input
               class="form-control form-control-sm" type="date" name="desde" required
               value="{{ datos.get('desde', '') }}" {{ atributos(datos, 'desde' ) }}>{{ error_campo(datos, 'desde')
             }}</label></div>
         <div class="col-12"><label class="form-label mb-0 w-100">Motivo *<input class="form-control form-control-sm"
               name="motivo" maxlength="500" required value="{{ datos.get('motivo', '') }}" {{ atributos(datos, 'motivo'
               ) }}>{{ error_campo(datos, 'motivo') }}</label></div>
-        <div class="col-12"><button class="btn btn-sm btn-primary">Guardar</button></div>
+        <div class="col-12"><button class="btn btn-sm btn-primary">Guardar cambio</button></div>
       </form>
       {% else %}<p class="text-secondary mb-0">Solo Operaciones modifica los parámetros.</p>{% endif %}
-    </div>
-  </div>
-  <div class="col-12 col-lg-7">
-    <div class="card card-body small">
-      <h2 class="h6">Historia de horas mensuales</h2>
-      <table class="table table-sm mb-3">
-        <thead>
-          <tr>
-            <th>Rige desde</th>
-            <th class="num">Horas</th>
-            <th>Por</th>
-            <th>Registrado</th>
-          </tr>
-        </thead>
-        <tbody>{% for p in horas %}<tr>
-            <td>{{ p.vigente_desde|mes }}</td>
-            <td class="num">{{ p.valor }}</td>
-            <td>{{ nombre_usuario(p.usuario_id) }}</td>
-            <td>{{ p.creado_en|local }}</td>
-          </tr>{% endfor %}</tbody>
-      </table>
-      <h2 class="h6">Historia de confiabilidad inicial</h2>
-      <table class="table table-sm mb-3">
-        <thead>
-          <tr>
-            <th>Rige desde</th>
-            <th class="num">Confiabilidad</th>
-            <th>Por</th>
-            <th>Registrado</th>
-          </tr>
-        </thead>
-        <tbody>{% for p in confiabilidades %}<tr>
-            <td>{{ p.vigente_desde|mes }}</td>
-            <td class="num">{{ p.valor }} %</td>
-            <td>{{ nombre_usuario(p.usuario_id) }}</td>
-            <td>{{ p.creado_en|local }}</td>
-          </tr>{% endfor %}</tbody>
-      </table>
-      <h2 class="h6">Otros parámetros</h2>
-      <table class="table table-sm mb-0">
-        <tbody>{% for p in otros %}<tr>
-            <td>{{ p.clave }}</td>
-            <td class="num">{{ p.valor }}</td>
-            <td>desde {{ p.vigente_desde|fecha }}</td>
-          </tr>{% endfor %}</tbody>
-      </table>
-      <p class="small-help mb-0 mt-2">Valores iniciales: 180 h (S-01, pendiente de validar con el sponsor) y
-        confiabilidad 90 %.</p>
-    </div>
-  </div>
-</div>
-
-<div class="row g-3 mt-1">
-  <div class="col-12 col-lg-5">
-    <div class="card card-body small mb-3">
-      <h2 class="h6">Metas comerciales por líder</h2>
+</section><section class="card card-body small"><h2 class="h6">Meta comercial por líder</h2><p class="parametro-valor" data-meta-nombre>{{ usuario.nombre if rol == 'LIDER' else 'Selecciona un líder' }}</p><p class="subtitulo-dato">Metas comerciales por líder · Vigencia mensual</p>
       {% set datos = formulario('/parametros/metas') %}
       <form method="post" action="/parametros/metas" class="row g-2">
         <input type="hidden" name="csrf_token" value="{{ csrf }}">
         {% if rol == 'OPERACIONES' %}
         <div class="col-12"><label class="form-label mb-0 w-100">Líder<select class="form-select form-select-sm"
-              name="lider_id" required {{ atributos(datos, 'lider_id' ) }}>
+              name="lider_id" data-meta-lider required {{ atributos(datos, 'lider_id' ) }}>
               {% for u in lideres %}<option value="{{ u.id }}" {% if datos.get('lider_id')==u.id|string %}selected{%
                 endif %}>{{ u.nombre }}</option>{% endfor %}
             </select>{{ error_campo(datos, 'lider_id') }}</label></div>
@@ -139,11 +80,36 @@
               ) }}>{{ error_campo(datos, 'motivo') }}</label></div>
         <div class="col-12"><button class="btn btn-sm btn-primary">Guardar meta</button></div>
       </form>
+</section></div>
+<section class="card card-body">
+  <div class="historial-cabecera"><h2 class="h6 mb-0">Historial de vigencias</h2>
+    <div class="historial-toggles" role="tablist" aria-label="Historial de parámetros">
+      <button type="button" id="historial-parametros-btn" role="tab" aria-selected="true" aria-controls="historial-parametros" data-historial-target="historial-parametros">Horas y confiabilidad</button>
+      <button type="button" id="historial-metas-btn" role="tab" aria-selected="false" aria-controls="historial-metas" tabindex="-1" data-historial-target="historial-metas">Metas por líder</button>
     </div>
   </div>
-  <div class="col-12 col-lg-7">
-    <div class="card card-body small">
-      <div class="d-flex justify-content-between align-items-center mb-2">
+  <div id="historial-parametros" role="tabpanel" aria-labelledby="historial-parametros-btn">
+    <div class="tabla-scroll" role="region" tabindex="0" aria-label="Historial de horas y confiabilidad"><table class="table table-sm mb-0">
+      <thead><tr><th>Parámetro</th><th>Rige desde</th><th>Valor</th><th>Usuario</th><th>Fecha de registro</th></tr></thead>
+      {% for titulo, lista, unidad in [('Historia de horas mensuales', horas, 'h'), ('Historia de confiabilidad inicial', confiabilidades, '%')] %}
+      <tbody><tr><th colspan="5" scope="rowgroup" class="small text-secondary">{{ titulo }}</th></tr>
+      {% for p in lista %}<tr><td>{{ 'Horas mensuales' if unidad == 'h' else 'Confiabilidad inicial' }}</td><td>{{ p.vigente_desde|mes }}</td><td class="fw-semibold">{{ p.valor }} {{ unidad }}</td><td>{{ nombre_usuario(p.usuario_id) }}</td><td>{{ p.creado_en|local }}</td></tr>
+      {% else %}<tr><td colspan="5">Sin cambios registrados.</td></tr>{% endfor %}</tbody>
+      {% endfor %}
+    </table></div>
+<h3 class="h6 mt-4">Otros parámetros</h3>
+      <table class="table table-sm mb-0">
+        <tbody>{% for p in otros %}<tr>
+            <td>{{ p.clave }}</td>
+            <td class="num">{{ p.valor }}</td>
+            <td>desde {{ p.vigente_desde|fecha }}</td>
+          </tr>{% endfor %}</tbody>
+      </table>
+      <p class="small-help mb-0 mt-2">Valores iniciales: 180 h (S-01, pendiente de validar con el sponsor) y
+        confiabilidad 90 %.</p>
+
+  </div>
+  <div id="historial-metas" role="tabpanel" aria-labelledby="historial-metas-btn" hidden><div class="d-flex justify-content-between align-items-center mb-2">
         <h2 class="h6 mb-0">Metas comerciales vigentes e históricas</h2>
         <span class="badge bg-secondary">Últimas 10</span>
       </div>
@@ -153,19 +119,19 @@
             <tr>
               <th>Líder</th>
               <th>Mes</th>
-              <th class="num">Meta</th>
+              <th class="num">Meta</th><th>Usuario</th><th>Fecha de registro</th>
             </tr>
           </thead>
           <tbody>{% for m in metas %}<tr>
               <td>{{ nombre_usuario(m.lider_id) }}</td>
               <td>{{ m.mes|mes }}</td>
-              <td class="num">{{ m.monto_clp|pesos }}</td>
+              <td class="num fw-semibold">{{ m.monto_clp|pesos }}</td><td>{{ nombre_usuario(m.usuario_id) }}</td><td>{{ m.creado_en|local }}</td>
             </tr>{% else %}<tr>
-              <td colspan="3" class="text-secondary">Sin metas registradas.</td>
+              <td colspan="5" class="text-secondary">Sin metas registradas.</td>
             </tr>{% endfor %}</tbody>
         </table>
       </div>
-    </div>
-  </div>
+</div>
+</section>
 </div>
 {% endblock %}

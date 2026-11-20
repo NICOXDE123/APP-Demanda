@@ -109,6 +109,8 @@ def inicio(request: Request):
         })
 
     grafico = json.dumps({
+        "hoy": str(hoy),
+        "periodos": [str(m.mes) for m in datos["meses"]],
         "meses": [mes(m.mes) for m in datos["meses"]],
         "backlog": [m.backlog_clp for m in datos["meses"]],
         "mab": [m.mab_clp for m in datos["meses"]],
